@@ -70,6 +70,7 @@ fi
 
 # 定义要清理的文件和目录
 INIT_DIR="$PROJECT_ROOT/.cold-start/project-init"
+CONFIG_FILE="$INIT_DIR/project-config.json"
 PROJECT_PLAN="$INIT_DIR/ProjectPlan.md"
 PLANS_DIR="$PROJECT_ROOT/.cursor/plans"
 TECH_STACK_JSON="$PROJECT_ROOT/tech_stack.json"
@@ -85,6 +86,11 @@ FILES_TO_CLEAN=()
 if [ -d "$INIT_DIR" ]; then
     echo -e "  📁 $INIT_DIR"
     FILES_TO_CLEAN+=("$INIT_DIR")
+fi
+
+if [ -f "$CONFIG_FILE" ]; then
+    echo -e "  📄 $CONFIG_FILE"
+    FILES_TO_CLEAN+=("$CONFIG_FILE")
 fi
 
 if [ -f "$PROJECT_PLAN" ]; then
@@ -152,7 +158,22 @@ if [ -d "$INIT_DIR" ]; then
     echo ""
 fi
 
-# 2. 清理项目计划文档（在冷启动目录内）
+# 2. 清理配置文件
+if [ -f "$CONFIG_FILE" ]; then
+    echo -e "${BLUE}清理项目配置文件...${NC}"
+    read -p "删除 $CONFIG_FILE？(y/n) " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        rm -f "$CONFIG_FILE"
+        echo -e "${GREEN}✅ 已删除${NC}"
+        CLEANED_COUNT=$((CLEANED_COUNT + 1))
+    else
+        echo -e "${YELLOW}跳过${NC}"
+    fi
+    echo ""
+fi
+
+# 3. 清理项目计划文档（在冷启动目录内，如果存在）
 if [ -f "$PROJECT_PLAN" ]; then
     echo -e "${BLUE}清理项目计划文档...${NC}"
     read -p "删除 $PROJECT_PLAN？(y/n) " -n 1 -r
@@ -167,7 +188,7 @@ if [ -f "$PROJECT_PLAN" ]; then
     echo ""
 fi
 
-# 3. 清理计划目录
+# 4. 清理计划目录
 if [ -d "$PLANS_DIR" ] && [ "$(ls -A $PLANS_DIR 2>/dev/null)" ]; then
     echo -e "${BLUE}清理计划目录...${NC}"
     read -p "删除 $PLANS_DIR 中的所有文件？(y/n) " -n 1 -r
@@ -182,7 +203,7 @@ if [ -d "$PLANS_DIR" ] && [ "$(ls -A $PLANS_DIR 2>/dev/null)" ]; then
     echo ""
 fi
 
-# 4. 清理技术选型记录
+# 5. 清理技术选型记录
 if [ -f "$TECH_STACK_JSON" ]; then
     echo -e "${BLUE}清理技术选型记录...${NC}"
     read -p "删除 $TECH_STACK_JSON？(y/n) " -n 1 -r
@@ -197,7 +218,7 @@ if [ -f "$TECH_STACK_JSON" ]; then
     echo ""
 fi
 
-# 5. 清理初始化报告
+# 6. 清理初始化报告
 if [ -f "$INIT_REPORT" ]; then
     echo -e "${BLUE}清理初始化报告...${NC}"
     read -p "删除 $INIT_REPORT？(y/n) " -n 1 -r
@@ -212,7 +233,7 @@ if [ -f "$INIT_REPORT" ]; then
     echo ""
 fi
 
-# 6. 清理初始化规则文件
+# 7. 清理初始化规则文件
 if [ -f "$RULE_FILE" ]; then
     echo -e "${BLUE}清理初始化规则文件...${NC}"
     echo -e "${YELLOW}⚠️  注意：删除此文件后，AI助手将无法识别项目初始化系统${NC}"

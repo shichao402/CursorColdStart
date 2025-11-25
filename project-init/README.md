@@ -37,7 +37,8 @@
 
 - `start.sh [项目目录]` - 交互式启动脚本
   - 自动完成初始化系统设置
-  - 创建项目计划文档模板
+  - 交互式收集核心项目信息（项目名称、编程语言、框架、平台）
+  - 生成 JSON 配置文件（project-config.json）
   - 设置AI助手规则文件
   - 验证设置完整性
   - 支持指定项目目录作为参数，或使用当前目录
@@ -90,13 +91,13 @@ cd /path/to/your-project
 
 # 脚本会交互式地完成：
 # - 复制初始化系统文件
-# - 创建项目计划文档模板
+# - 交互式收集核心项目信息（项目名称、编程语言、框架、平台）
+# - 自动生成配置文件（.cold-start/project-init/project-config.json）
 # - 设置AI助手规则文件
 # - 创建计划目录
 # - 验证设置
 
-# 3. 编辑项目计划文档
-# 按照提示编辑 ProjectPlan.md
+# 3. AI 助手会读取配置文件并继续初始化流程
 
 # 4. 在 Cursor 中告诉 AI 助手：
 # "请按照 PROJECT_INIT_PLAN.md 开始项目初始化"
@@ -153,9 +154,9 @@ cp .cold-start/project-init/00-PROJECT_INIT_RULE.mdc .cursor/rules/
 
 AI助手将：
 
-1. **生成项目初始化计划** - 根据 .cold-start/project-init/ProjectPlan.md 生成 `.cursor/plans/00-project-init-plan.mdc`
-2. **读取项目计划文档** - 理解项目需求（从 .cold-start/project-init/ProjectPlan.md）
-3. **技术选型确认** - 使用问答模板收集信息
+1. **读取项目配置文件** - 从 `.cold-start/project-init/project-config.json` 获取核心信息
+2. **生成项目初始化计划** - 根据配置文件生成 `.cursor/plans/00-project-init-plan.mdc`
+3. **技术选型确认** - 根据配置文件信息，询问用户确认或补充细节
 4. **逐步实施** - 按照计划文件中的步骤执行：
    - 每步执行前读取计划文件了解当前步骤
    - 执行步骤操作
@@ -214,7 +215,7 @@ AI助手将：
 
 ## 📝 注意事项
 
-1. **项目计划文档必须存在** - AI助手需要先读取 `.cold-start/project-init/ProjectPlan.md`（由 start.sh 自动创建）
+1. **项目配置文件必须存在** - AI助手需要先读取 `.cold-start/project-init/project-config.json`（由 start.sh 自动生成）
 2. **技术选型需要用户确认** - 问答环节需要用户参与
 3. **模板文件需要准备** - 规则模板和代码模板需要提前准备
 4. **逐步执行** - AI助手会逐步执行，每步完成后报告进度
@@ -275,7 +276,7 @@ AI助手必须：
 
 项目初始化系统使用 `.cursor/plans/` 目录来管理初始化计划：
 
-1. **生成计划文件** - AI助手根据 .cold-start/project-init/ProjectPlan.md 生成 `.cursor/plans/00-project-init-plan.mdc`
+1. **生成计划文件** - AI助手根据 .cold-start/project-init/project-config.json 生成 `.cursor/plans/00-project-init-plan.mdc`
 2. **跟踪进度** - 计划文件中每个步骤都有状态标记（⏳ 待执行 / ✅ 已完成）
 3. **执行依据** - AI助手按照计划文件中的步骤执行
 4. **更新状态** - 每完成一个步骤，AI助手更新计划文件中的状态和进度
@@ -285,7 +286,7 @@ AI助手必须：
 ```
 .cursor/plans/
 └── 00-project-init-plan.mdc
-    ├── 项目信息（从 .cold-start/project-init/ProjectPlan.md 提取）
+    ├── 项目信息（从 .cold-start/project-init/project-config.json 读取）
     ├── 初始化目标
     ├── 执行步骤（每个步骤有状态标记）
     ├── 进度跟踪（完成率统计）

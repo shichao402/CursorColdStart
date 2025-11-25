@@ -17,12 +17,12 @@
 
 AI助手必须首先检查：
 
-1. ✅ **项目计划文档是否存在**
+1. ✅ **项目配置文件是否存在**
    ```bash
-   # 检查 ProjectPlan.md 是否存在
-   ls .cold-start/project-init/ProjectPlan.md
+   # 检查 project-config.json 是否存在
+   ls .cold-start/project-init/project-config.json
    ```
-   - 如果不存在，提示用户先创建项目计划文档
+   - 如果不存在，提示用户运行 start.sh 脚本收集项目信息
 
 2. ✅ **初始化计划文档是否存在**
    ```bash
@@ -33,19 +33,18 @@ AI助手必须首先检查：
 
 ## 📋 执行流程
 
-### 步骤1：读取项目计划文档
+### 步骤1：读取项目配置文件
 
 **AI操作：**
 ```bash
-# 读取项目计划文档
-cat .cold-start/project-init/ProjectPlan.md
+# 读取项目配置文件
+cat .cold-start/project-init/project-config.json
 ```
 
 **AI任务：**
-1. 提取项目名称
-2. 提取技术选型信息（初步）
-3. 提取项目结构信息
-4. 提取特殊需求
+1. 解析 JSON 配置文件
+2. 提取项目名称、编程语言、框架、平台等信息
+3. 生成项目理解摘要，向用户展示
 
 **输出：** 生成项目理解摘要，向用户展示
 
@@ -65,7 +64,7 @@ cat .cold-start/project-init/ProjectPlan.md
    ```
 
 3. **替换占位符**
-   - 从 .cold-start/project-init/ProjectPlan.md 读取项目信息
+   - 从 .cold-start/project-init/project-config.json 读取项目信息
    - 根据项目结构生成文件路径
    - 替换所有占位符（参考 TEMPLATE_PLACEHOLDERS.md）
 

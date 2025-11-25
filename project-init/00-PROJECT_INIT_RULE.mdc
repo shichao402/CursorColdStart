@@ -21,13 +21,13 @@ alwaysApply: true
 
 AI助手**必须**首先检查：
 
-1. **项目计划文档是否存在**
+1. **项目配置文件是否存在**
    ```bash
-   # 检查 ProjectPlan.md 是否存在
-   ls .cold-start/project-init/ProjectPlan.md
+   # 检查 project-config.json 是否存在
+   ls .cold-start/project-init/project-config.json
    ```
    - ✅ 如果存在：继续执行
-   - ❌ 如果不存在：提示用户先创建项目计划文档，参考 `.cold-start/project-init/ProjectPlan.md.template`
+   - ❌ 如果不存在：提示用户运行 start.sh 脚本收集项目信息
 
 2. **初始化计划文档是否存在**
    ```bash
@@ -46,9 +46,10 @@ AI助手**必须**：
    mkdir -p .cursor/plans
    ```
 
-2. **读取计划模板并生成计划文件**
+2. **读取配置文件并生成计划文件**
+   - 读取 `.cold-start/project-init/project-config.json` 获取项目信息
    - 读取 `.cold-start/project-init/templates/plans/00-project-init-plan.mdc`
-   - 根据 ProjectPlan.md 替换占位符
+   - 根据配置文件替换占位符
    - 保存到 `.cursor/plans/00-project-init-plan.mdc`
 
 3. **读取执行指令**
