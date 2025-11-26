@@ -15,6 +15,9 @@ planType: project-init
 - **框架：** {{ FRAMEWORK }}
 - **目标平台：** {{ TARGET_PLATFORMS }}
 - **构建工具：** {{ BUILD_TOOL }}
+{% if ENABLE_GITHUB_ACTION %}
+- **GitHub Action：** ✅ 已启用
+{% endif %}
 
 > **注意：** 项目详细描述请参考 `plans/01-project-description.md` 文档
 
@@ -25,7 +28,14 @@ planType: project-init
 2. ✅ 创建日志收集脚本
 3. ✅ 创建部署脚本
 4. ✅ 应用项目规则
+{% if ENABLE_GITHUB_ACTION %}
+5. ✅ 配置 GitHub Actions 工作流
+{% endif %}
+{% if ENABLE_GITHUB_ACTION %}
+6. ✅ 验证初始化结果
+{% else %}
 5. ✅ 验证初始化结果
+{% endif %}
 
 ## 📝 执行步骤
 
@@ -43,6 +53,9 @@ planType: project-init
   - 框架：{{ FRAMEWORK }}
   - 目标平台：{{ TARGET_PLATFORMS }}
   - 构建工具：{{ BUILD_TOOL }}
+{% if ENABLE_GITHUB_ACTION %}
+  - GitHub Action：✅ 已启用
+{% endif %}
 
 #### 步骤1.2：技术选型确认（可选）
 - **状态：** ⏳ 待执行
@@ -95,30 +108,51 @@ planType: project-init
 - **输出：** 更新后的 `.cursor/rules/02-scripts.mdc`
 - **验证：** 所有占位符已替换，规则文件格式正确
 
-### 阶段4：调试规则初始化
+{% if ENABLE_GITHUB_ACTION %}
+### 阶段4：GitHub Actions 工作流配置
 
-#### 步骤4.1：验证调试规则文件
+#### 步骤4.1：创建 GitHub Actions 工作流文件
+- **状态：** ⏳ 待执行
+- **输入：** 技术选型信息（构建工具、测试命令等）
+- **输出：** `.github/workflows/ci.yml` 或 `.github/workflows/build.yml`
+- **说明：** 根据项目类型创建合适的 CI/CD 工作流配置
+- **验证：** 工作流文件存在且格式正确
+
+#### 步骤4.2：配置工作流触发条件
+- **状态：** ⏳ 待执行
+- **说明：** 配置工作流的触发条件（push、pull_request 等）
+- **验证：** 触发条件配置正确
+
+#### 步骤4.3：配置构建和测试步骤
+- **状态：** ⏳ 待执行
+- **说明：** 根据项目类型配置构建、测试、部署步骤
+- **验证：** 构建和测试步骤配置正确
+
+{% endif %}
+### {% if ENABLE_GITHUB_ACTION %}阶段5{% else %}阶段4{% endif %}：调试规则初始化
+
+#### 步骤{% if ENABLE_GITHUB_ACTION %}5{% else %}4{% endif %}.1：验证调试规则文件
 - **状态：** ⏳ 待执行
 - **说明：** `.cursor/rules/03-debugging.mdc` 已生成，检查是否需要更新
 - **验证：** 规则文件格式正确，内容符合项目需求
 
-### 阶段5：核心规则初始化
+### {% if ENABLE_GITHUB_ACTION %}阶段6{% else %}阶段5{% endif %}：核心规则初始化
 
-#### 步骤5.1：验证核心规则文件
+#### 步骤{% if ENABLE_GITHUB_ACTION %}6{% else %}5{% endif %}.1：验证核心规则文件
 - **状态：** ⏳ 待执行
 - **说明：** `.cursor/rules/00-core.mdc` 已生成，检查是否需要更新
 - **验证：** 规则文件格式正确，内容符合项目需求
 
-### 阶段6：开发规则初始化（可选）
+### {% if ENABLE_GITHUB_ACTION %}阶段7{% else %}阶段6{% endif %}：开发规则初始化（可选）
 
-#### 步骤6.1：验证开发规则文件
+#### 步骤{% if ENABLE_GITHUB_ACTION %}7{% else %}6{% endif %}.1：验证开发规则文件
 - **状态：** ⏳ 待执行
 - **说明：** `.cursor/rules/04-development.mdc` 已生成，检查是否需要更新
 - **验证：** 规则文件格式正确，内容符合项目需求
 
-### 阶段7：验证和完成
+### {% if ENABLE_GITHUB_ACTION %}阶段8{% else %}阶段7{% endif %}：验证和完成
 
-#### 步骤7.1：验证规则文件
+#### 步骤{% if ENABLE_GITHUB_ACTION %}8{% else %}7{% endif %}.1：验证规则文件
 - **状态：** ⏳ 待执行
 - **验证项：**
   - ✅ `.cursor/rules/00-core.mdc` 存在
@@ -129,14 +163,17 @@ planType: project-init
   - ✅ 所有文件都有 `alwaysApply: true` 前置元数据
   - ✅ 路径限定语法正确（如果有）
 
-#### 步骤7.2：验证代码文件
+#### 步骤{% if ENABLE_GITHUB_ACTION %}8{% else %}7{% endif %}.2：验证代码文件
 - **状态：** ⏳ 待执行
 - **验证项：**
   - ✅ 日志服务文件存在且可编译/运行
   - ✅ 日志收集脚本存在且有执行权限
   - ✅ 部署脚本存在且有执行权限
+{% if ENABLE_GITHUB_ACTION %}
+  - ✅ GitHub Actions 工作流文件存在且格式正确
+{% endif %}
 
-#### 步骤7.3：生成初始化报告
+#### 步骤{% if ENABLE_GITHUB_ACTION %}8{% else %}7{% endif %}.3：生成初始化报告
 - **状态：** ⏳ 待执行
 - **输出：** `PROJECT_INIT_REPORT.md`
 - **内容：**
@@ -160,6 +197,9 @@ planType: project-init
 - ✅ 日志服务已实现并可用
 - ✅ 日志收集脚本已创建
 - ✅ 部署脚本已创建
+{% if ENABLE_GITHUB_ACTION %}
+- ✅ GitHub Actions 工作流已配置
+{% endif %}
 - ✅ 所有规则文件格式正确
 - ✅ 项目可以开始正常开发
 
@@ -175,6 +215,9 @@ planType: project-init
 - [ ] 应用日志规则
 - [ ] 创建部署脚本
 - [ ] 应用脚本规则
+{% if ENABLE_GITHUB_ACTION %}
+- [ ] 配置 GitHub Actions 工作流
+{% endif %}
 - [ ] 应用调试规则
 - [ ] 应用核心规则
 - [ ] 应用开发规则

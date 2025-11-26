@@ -6,6 +6,7 @@
   "framework": "flutter",
   "buildTool": "Flutter CLI",
   "codeLanguage": "dart",
-  "platforms": ["android", "ios"]
+  "platforms": ["android", "ios"],
+  "enableGitHubAction": false
 }
 

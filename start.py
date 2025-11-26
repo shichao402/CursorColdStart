@@ -94,6 +94,9 @@ class ProjectInitializer:
             'MODULE_PATH': '**',
             'GENERATION_DATE': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             
+            # GitHub Action 相关
+            'ENABLE_GITHUB_ACTION': config.get('enableGitHubAction', False),
+            
             # 日志相关
             'LOGGER_SERVICE_CLASS': 'Logger',
             'LOG_FILE_PATH': 'logs/app.log',
@@ -323,6 +326,12 @@ class ProjectInitializer:
             selected_platforms = [default_platform]
         
         config['platforms'] = selected_platforms
+        
+        # 收集是否启用 GitHub Action
+        print()
+        github_action_input = input("是否启用 GitHub Action？(y/n，默认n): ").strip().lower()
+        config['enableGitHubAction'] = github_action_input == 'y' or github_action_input == 'yes'
+        
         self.save_config(config)
         
         print()
