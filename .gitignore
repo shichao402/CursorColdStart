@@ -1,0 +1,8 @@
+# .gitignore
+.cold-start-staging/
+
+# Python虚拟环境
+.venv/
+venv/
+env/
+ENV/

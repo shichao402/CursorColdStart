@@ -1,7 +1,7 @@
 ---
 alwaysApply: true
 ---
-# {PROJECT_NAME} 项目核心规则
+# {{ PROJECT_NAME }} 项目核心规则
 
 ## 规则优先级
 

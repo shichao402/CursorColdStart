@@ -23,19 +23,19 @@ alwaysApply: true
 
 AI必须使用项目中已有的脚本，不得手动查找工具路径。
 
-{DEPLOY_COMMANDS_DESCRIPTION}
+{{ DEPLOY_COMMANDS_DESCRIPTION }}
 
 ### 禁止行为
 
-- ❌ 手动查找{BUILD_TOOL}路径
-- ❌ 手动执行{BUILD_TOOL}命令
+- ❌ 手动查找{{ BUILD_TOOL }}路径
+- ❌ 手动执行{{ BUILD_TOOL }}命令
 - ❌ 不使用预置脚本
 - ✅ 必须使用scripts目录中的部署脚本
 
 ## 实施状态
 
 ### 日志系统
-- [x] {LOGGER_SERVICE_CLASS}
+- [x] {{ LOGGER_SERVICE_CLASS }}
 - [x] 独立日志文件
 - [x] 错误堆栈跟踪
 - [x] 日志收集脚本

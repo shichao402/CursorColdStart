@@ -11,12 +11,12 @@ alwaysApply: true
 
 ## 部署脚本
 
-{DEPLOY_SCRIPTS_DESCRIPTION}
+{{ DEPLOY_SCRIPTS_DESCRIPTION }}
 
 ## 禁止行为
 
-- ❌ 手动查找{BUILD_TOOL}路径
-- ❌ 手动执行{BUILD_TOOL}命令（build、run、install等）
+- ❌ 手动查找{{ BUILD_TOOL }}路径
+- ❌ 手动执行{{ BUILD_TOOL }}命令（build、run、install等）
 - ❌ 手动使用系统命令收集日志
 - ❌ 手动访问日志文件路径
 - ❌ 不使用预置脚本进行任何调试操作

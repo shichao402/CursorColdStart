@@ -1,0 +1,11 @@
+{
+  "projectName": "项目名称",
+  "projectDescriptionFile": "plans/01-project-description.md",
+  "language": "dart",
+  "languageName": "Dart",
+  "framework": "flutter",
+  "buildTool": "Flutter CLI",
+  "codeLanguage": "dart",
+  "platforms": ["android", "ios"]
+}
+
