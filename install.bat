@@ -105,10 +105,10 @@ echo 激活虚拟环境：
 echo   %VENV_DIR%\Scripts\activate.bat
 echo.
 echo 使用虚拟环境运行：
-echo   %VENV_DIR%\Scripts\python.exe start.py init [目标项目目录]
+echo   %VENV_DIR%\Scripts\python.exe coldstart.py init [目标项目目录]
 echo.
 echo 或者激活虚拟环境后直接运行：
-echo   python start.py init [目标项目目录]
+echo   python coldstart.py init [目标项目目录]
 echo.
 
 endlocal

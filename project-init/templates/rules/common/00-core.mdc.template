@@ -110,7 +110,7 @@ alwaysApply: true
 - **实践：**
   ```bash
   # 运行模块注入命令
-  python start.py inject <目标项目目录>
+  python coldstart.py inject <目标项目目录>
   
   # 脚手架会列出可用的模块
   # 用户选择需要的模块（如：更新模块）

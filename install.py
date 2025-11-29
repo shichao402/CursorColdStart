@@ -218,10 +218,10 @@ def main():
         print()
         print("使用虚拟环境运行：")
         venv_python = get_venv_python(venv_dir)
-        print(f"  {venv_python} start.py init [目标项目目录]")
+        print(f"  {venv_python} coldstart.py init [目标项目目录]")
         print()
         print("或者激活虚拟环境后直接运行：")
-        print("  python start.py init [目标项目目录]")
+        print("  python coldstart.py init [目标项目目录]")
         print()
     else:
         print()

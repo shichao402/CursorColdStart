@@ -6,3 +6,10 @@
 venv/
 env/
 ENV/
+
+# Python缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python

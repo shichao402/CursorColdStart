@@ -71,7 +71,7 @@ def main():
             print("此命令需要目标项目目录")
             print()
             print("使用方法：")
-            print(f"  python start.py {cmd_name} <目标项目目录>")
+            print(f"  python coldstart.py {cmd_name} <目标项目目录>")
             return
         
         print()
