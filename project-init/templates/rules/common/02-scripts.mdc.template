@@ -8,6 +8,7 @@ alwaysApply: true
 1. **所有调试操作必须使用项目中已有的脚本**，禁止手动执行命令
 2. 如果脚本无法完成工作，**必须修改脚本**使其正常工作
 3. AI必须主动执行脚本，不要求用户操作
+4. **所有脚本必须支持跨平台**，必须提供 Windows、macOS 和 Linux 的入口脚本
 
 ## 脚本设计原则（指导性）
 
@@ -36,28 +37,115 @@ alwaysApply: true
   # 直接在 deploy.sh 中写 flutter build apk 等命令
   ```
 
-### 3. 通用和跨平台化
+### 3. 跨平台支持（强制）
 
-- **原则：** 脚本要考虑通用性和跨平台兼容性
-- **目标：** 确保脚本在不同环境下都能正常工作
-- **实践：**
-  - 使用跨平台的命令和工具
-  - 避免硬编码路径，使用环境变量或配置文件
-  - 检测操作系统类型，提供不同平台的实现
-  - 提供清晰的错误信息和失败处理
-  ```bash
-  # ✅ 好的做法 - 跨平台路径处理
-  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  
-  # ✅ 好的做法 - 检测操作系统
-  if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-      # Linux specific
-  elif [[ "$OSTYPE" == "darwin"* ]]; then
-      # macOS specific
-  elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
-      # Windows specific
-  fi
-  ```
+- **原则：** 所有脚本必须支持跨平台，提供各平台的入口脚本
+- **目标：** 确保脚本在 Windows、macOS 和 Linux 上都能正常工作
+- **实现方式：**
+  - **推荐：** 使用跨平台语言（如 Python）实现核心逻辑，各平台提供代理入口脚本
+  - **备选：** 使用平台特定的脚本语言，但必须提供所有平台的版本
+
+#### 平台代理入口脚本模式（推荐）
+
+**核心实现：** 使用 Python 等跨平台语言实现核心逻辑
+**入口脚本：** 各平台提供简单的代理脚本调用核心实现
+
+**目录结构：**
+```
+scripts/
+├── build.py              # 核心实现（Python，跨平台）
+├── build.sh              # macOS/Linux 入口脚本
+├── build.bat             # Windows 入口脚本
+├── deploy.py             # 核心实现
+├── deploy.sh             # macOS/Linux 入口脚本
+└── deploy.bat            # Windows 入口脚本
+```
+
+**Windows 入口脚本示例（build.bat）：**
+```batch
+@echo off
+REM 获取脚本所在目录
+set SCRIPT_DIR=%~dp0
+REM 使用虚拟环境的 Python 运行核心脚本
+"%SCRIPT_DIR%..venv\Scripts\python.exe" "%SCRIPT_DIR%build.py" %*
+```
+
+**macOS/Linux 入口脚本示例（build.sh）：**
+```bash
+#!/bin/bash
+# 获取脚本所在目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 使用虚拟环境的 Python 运行核心脚本
+exec "$SCRIPT_DIR/../.venv/bin/python" "$SCRIPT_DIR/build.py" "$@"
+```
+
+**核心脚本示例（build.py）：**
+```python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+跨平台构建脚本
+"""
+import sys
+from pathlib import Path
+
+def main():
+    # 跨平台路径处理
+    script_dir = Path(__file__).parent.resolve()
+    project_root = script_dir.parent
+    
+    # 跨平台命令执行
+    # ... 构建逻辑 ...
+    pass
+
+if __name__ == '__main__':
+    main()
+```
+
+#### 纯脚本语言模式（备选）
+
+如果使用纯脚本语言，必须提供所有平台的版本：
+
+**Windows 批处理脚本（build.bat）：**
+```batch
+@echo off
+setlocal
+set SCRIPT_DIR=%~dp0
+cd /d "%SCRIPT_DIR%.."
+REM Windows 特定的构建命令
+flutter build apk
+```
+
+**macOS/Linux Shell 脚本（build.sh）：**
+```bash
+#!/bin/bash
+set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.."
+# Unix 特定的构建命令
+flutter build apk
+```
+
+#### 跨平台路径处理
+
+无论使用哪种模式，都必须正确处理跨平台路径：
+
+```python
+# Python - 跨平台路径处理
+from pathlib import Path
+script_dir = Path(__file__).parent.resolve()
+project_root = script_dir.parent
+```
+
+```bash
+# Shell - Unix 路径处理
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+```
+
+```batch
+REM Batch - Windows 路径处理
+set SCRIPT_DIR=%~dp0
+```
 
 ## 部署脚本
 
@@ -76,6 +164,9 @@ alwaysApply: true
 - ❌ 要求用户手动修复脚本
 - ❌ 跳过脚本直接操作
 - ❌ 不修复脚本而使用临时方案
+- ❌ **只提供单一平台的脚本**（必须支持 Windows、macOS、Linux）
+- ❌ **使用平台特定的命令而不提供跨平台实现**
+- ❌ **硬编码平台特定的路径或命令**
 
 ## 必须遵守
 
@@ -87,6 +178,9 @@ alwaysApply: true
 - ✅ 修复脚本后必须验证脚本能够正常工作
 - ✅ 保持脚本的健壮性和可维护性
 - ✅ AI必须主动执行脚本，不要求用户操作
+- ✅ **所有脚本必须提供跨平台支持**（Windows、macOS、Linux）
+- ✅ **必须提供各平台的入口脚本**（.bat 用于 Windows，.sh 用于 macOS/Linux）
+- ✅ **推荐使用跨平台语言（如 Python）实现核心逻辑**，各平台入口脚本调用核心实现
 
 ## 脚本维护规则（强制）
 

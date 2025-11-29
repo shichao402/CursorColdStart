@@ -1,0 +1,79 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "{{ GENERATION_DATE }}",
+  "generatedBy": "CursorColdStart",
+  "project": {
+    "name": "{{ PROJECT_NAME }}",
+    "description": "{{ PROJECT_DESCRIPTION }}"
+  },
+  "technology": {
+    "language": {
+      "id": "{{ LANGUAGE_ID }}",
+      "name": "{{ PROGRAMMING_LANGUAGE }}",
+      "codeLanguage": "{{ CODE_LANGUAGE }}"
+    },
+    "framework": {
+      "id": "{{ FRAMEWORK_ID }}",
+      "name": "{{ FRAMEWORK }}",
+      "buildTool": "{{ BUILD_TOOL }}"
+    },
+    "platforms": [
+{%- for platform in PLATFORMS %}
+      {
+        "id": "{{ platform.id }}",
+        "name": "{{ platform.name }}"
+      }{% if not loop.last %},{% endif %}
+{%- endfor %}
+    ]
+  },
+  "modules": {
+    "injected": [
+{%- for module in INJECTED_MODULES %}
+      {
+        "id": "{{ module.id }}",
+        "name": "{{ module.name }}",
+        "type": "{{ module.type }}",
+        "injectedAt": "{{ module.injectedAt }}",
+        "files": [
+{%- for file in module.files %}
+          {
+            "name": "{{ file.name }}",
+            "path": "{{ file.path }}",
+            "type": "{{ file.type }}"
+          }{% if not loop.last %},{% endif %}
+{%- endfor %}
+        ]
+      }{% if not loop.last %},{% endif %}
+{%- endfor %}
+    ],
+    "available": []
+  },
+  "files": {
+    "plans": [
+{%- for plan in IMPLEMENTED_PLANS %}
+      {
+        "name": "{{ plan.name }}",
+        "path": "{{ plan.path }}"
+      }{% if not loop.last %},{% endif %}
+{%- endfor %}
+    ],
+    "rules": [
+{%- for rule in IMPLEMENTED_RULES %}
+      {
+        "name": "{{ rule.name }}",
+        "path": "{{ rule.path }}",
+        "type": "{{ rule.type }}"
+      }{% if not loop.last %},{% endif %}
+{%- endfor %}
+    ]
+  },
+  "config": {
+    "enableGitHubAction": {% if ENABLE_GITHUB_ACTION == 'true' %}true{% else %}false{% endif %},
+    "logService": {
+      "class": "{{ LOGGER_SERVICE_CLASS }}",
+      "filePath": "{{ LOG_FILE_PATH }}",
+      "collectScript": "{{ LOG_COLLECT_SCRIPT_PATH }}"
+    }
+  }
+}
+

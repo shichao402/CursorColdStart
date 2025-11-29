@@ -8,7 +8,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/.venv"
 VENV_PYTHON="$VENV_DIR/bin/python"
-START_PY="$SCRIPT_DIR/start.py"
+START_PY="$SCRIPT_DIR/coldstart.py"
 
 # 检查虚拟环境是否存在
 if [ ! -d "$VENV_DIR" ]; then
@@ -30,12 +30,12 @@ if [ ! -f "$VENV_PYTHON" ]; then
     exit 1
 fi
 
-# 检查start.py是否存在
+# 检查coldstart.py是否存在
 if [ ! -f "$START_PY" ]; then
-    echo "❌ 错误：找不到 start.py: $START_PY"
+    echo "❌ 错误：找不到 coldstart.py: $START_PY"
     exit 1
 fi
 
-# 使用虚拟环境的Python运行start.py，并传递所有参数
+# 使用虚拟环境的Python运行coldstart.py，并传递所有参数
 exec "$VENV_PYTHON" "$START_PY" "$@"
 

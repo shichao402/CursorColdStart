@@ -7,7 +7,7 @@ setlocal enabledelayedexpansion
 set SCRIPT_DIR=%~dp0
 set VENV_DIR=%SCRIPT_DIR%.venv
 set VENV_PYTHON=%VENV_DIR%\Scripts\python.exe
-set START_PY=%SCRIPT_DIR%start.py
+set START_PY=%SCRIPT_DIR%coldstart.py
 
 REM 检查虚拟环境是否存在
 if not exist "%VENV_DIR%" (
@@ -29,13 +29,13 @@ if not exist "%VENV_PYTHON%" (
     exit /b 1
 )
 
-REM 检查start.py是否存在
+REM 检查coldstart.py是否存在
 if not exist "%START_PY%" (
-    echo ❌ 错误：找不到 start.py: %START_PY%
+    echo ❌ 错误：找不到 coldstart.py: %START_PY%
     exit /b 1
 )
 
-REM 使用虚拟环境的Python运行start.py，并传递所有参数
+REM 使用虚拟环境的Python运行coldstart.py，并传递所有参数
 "%VENV_PYTHON%" "%START_PY%" %*
 
 endlocal

@@ -1,0 +1,128 @@
+---
+alwaysApply: true
+---
+# 安全规则 - 高优先级
+
+## 核心约束（强制）
+
+1. **所有敏感信息必须被清洗并且排除到版本控制之外**
+2. AI必须主动检查并清理敏感信息，不等待用户提醒
+3. 敏感信息包括但不限于：API密钥、密码、令牌、私钥、证书、个人信息等
+
+## 敏感信息类型
+
+### 必须排除的敏感信息
+
+- **认证信息：** API密钥、访问令牌、OAuth密钥、JWT密钥
+- **密码：** 数据库密码、服务密码、管理员密码
+- **密钥：** 私钥、加密密钥、签名密钥
+- **证书：** SSL证书、客户端证书
+- **个人信息：** 邮箱、电话、身份证号、地址
+- **配置信息：** 数据库连接字符串、服务端点URL（包含认证信息）
+- **其他：** 任何可能被恶意利用的信息
+
+## 处理方式
+
+### 1. 使用环境变量
+
+**原则：** 所有敏感信息必须通过环境变量或配置文件（不提交到版本控制）提供
+
+**实践：**
+```bash
+# ✅ 好的做法 - 使用环境变量
+API_KEY=${API_KEY}
+DATABASE_URL=${DATABASE_URL}
+
+# ❌ 不好的做法 - 硬编码敏感信息
+API_KEY=sk-1234567890abcdef
+DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+```
+
+### 2. 使用配置文件模板
+
+**原则：** 提供配置文件模板（如 `.env.example`），不包含真实敏感信息
+
+**实践：**
+```bash
+# ✅ 好的做法 - 提供模板文件
+# .env.example
+API_KEY=your_api_key_here
+DATABASE_URL=your_database_url_here
+
+# ❌ 不好的做法 - 提交真实配置
+# .env (已提交到版本控制)
+API_KEY=sk-real-key-123456
+```
+
+### 3. 使用 .gitignore
+
+**原则：** 确保所有包含敏感信息的文件被正确排除
+
+**必须排除的文件：**
+- `.env`、`.env.local`、`.env.*.local`
+- `*.key`、`*.pem`、`*.cert`、`*.p12`
+- `secrets/`、`credentials/`、`config/local.*`
+- 任何包含敏感信息的配置文件
+
+## 禁止行为
+
+- ❌ 在代码中硬编码敏感信息
+- ❌ 将包含敏感信息的文件提交到版本控制
+- ❌ 在日志中输出敏感信息
+- ❌ 在错误消息中暴露敏感信息
+- ❌ 在注释中留下敏感信息
+- ❌ 忽略敏感信息检查
+
+## 必须遵守
+
+- ✅ 所有敏感信息必须通过环境变量或外部配置文件提供
+- ✅ 提供配置文件模板（如 `.env.example`）
+- ✅ 确保 `.gitignore` 正确配置，排除所有敏感文件
+- ✅ 代码审查时检查是否包含敏感信息
+- ✅ 日志输出前必须清洗敏感信息
+- ✅ AI必须主动检查并清理敏感信息
+- ✅ 发现敏感信息必须立即处理，不得推给用户
+
+## 检查清单
+
+在提交代码前，AI必须检查：
+
+- [ ] 代码中是否包含硬编码的敏感信息
+- [ ] 配置文件是否已正确添加到 `.gitignore`
+- [ ] 是否提供了配置文件模板
+- [ ] 日志输出是否包含敏感信息
+- [ ] 错误消息是否暴露敏感信息
+- [ ] 注释中是否包含敏感信息
+
+## 敏感信息清洗示例
+
+### 日志清洗
+
+```python
+# ✅ 好的做法 - 清洗敏感信息
+def log_request(url, headers):
+    safe_headers = {k: '***' if 'key' in k.lower() or 'token' in k.lower() else v 
+                    for k, v in headers.items()}
+    logger.log(f'Request: {url}, Headers: {safe_headers}')
+
+# ❌ 不好的做法 - 直接输出敏感信息
+def log_request(url, headers):
+    logger.log(f'Request: {url}, Headers: {headers}')  # 可能包含API密钥
+```
+
+### 错误消息清洗
+
+```python
+# ✅ 好的做法 - 不暴露敏感信息
+try:
+    connect_to_database(connection_string)
+except Exception as e:
+    logger.logError('Database connection failed', error=e)
+    # 不输出完整的 connection_string
+
+# ❌ 不好的做法 - 暴露敏感信息
+except Exception as e:
+    logger.logError(f'Database connection failed: {connection_string}', error=e)
+```
+
+
