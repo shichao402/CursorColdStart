@@ -365,14 +365,41 @@ logger.logError('模块操作失败', error: e, stackTrace: stackTrace, tag: 'MO
         # 1. 检查是否已有配置文件
         project_config_file = target_path / ".cold-start" / "project.json"
         if project_config_file.exists():
-            print("⚠️  项目配置文件已存在")
+            print("✅ 项目配置文件已存在")
             print(f"  位置: {project_config_file}")
             print()
-            overwrite = input("是否覆盖现有配置？(y/n): ").strip().lower()
-            if overwrite != 'y':
-                print("操作已取消")
+            
+            # 读取现有配置并显示
+            try:
+                with open(project_config_file, 'r', encoding='utf-8') as f:
+                    existing_config = json.load(f)
+                
+                project_info = existing_config.get('project', {})
+                tech = existing_config.get('technology', {})
+                lang = tech.get('language', {})
+                fw = tech.get('framework', {})
+                platforms = tech.get('platforms', [])
+                config = existing_config.get('config', {})
+                
+                print("当前配置信息：")
+                print(f"  项目名称: {project_info.get('name', '未知')}")
+                print(f"  语言: {lang.get('name', '未知')}")
+                print(f"  框架: {fw.get('name', '未知')}")
+                print(f"  平台: {', '.join([p.get('name', '') for p in platforms])}")
+                print(f"  GitHub Actions: {'启用' if config.get('enableGitHubAction', False) else '禁用'}")
+                print()
+                print("✅ 使用现有配置，无需重复初始化")
+                print()
+                print("下一步操作：")
+                print("1. 使用 'update-rules' 命令更新规则文件")
+                print("2. 使用 'inject' 命令注入模块规则")
+                print("3. 使用 'extract-rules' 命令提取规则并反哺")
+                print()
                 return
-            print()
+            except Exception as e:
+                print(f"⚠️  读取配置文件时出错: {e}")
+                print("将重新创建配置文件...")
+                print()
         
         # 2. 自动检测项目信息
         print("[1] 自动检测项目信息...")
@@ -597,6 +624,29 @@ logger.logError('模块操作失败', error: e, stackTrace: stackTrace, tag: 'MO
             print(f"  ✅ 配置文件已创建: {project_config_file}")
         print()
         
+        # 读取生成的配置文件用于创建 README
+        try:
+            with open(project_config_file, 'r', encoding='utf-8') as f:
+                project_info = json.load(f)
+        except:
+            # 如果读取失败，使用 template_values 构建 project_info
+            project_info = {
+                'project': {
+                    'name': template_values['PROJECT_NAME'],
+                    'description': template_values['PROJECT_DESCRIPTION']
+                },
+                'technology': {
+                    'language': {
+                        'name': template_values['PROGRAMMING_LANGUAGE']
+                    },
+                    'framework': {
+                        'name': template_values['FRAMEWORK']
+                    },
+                    'platforms': template_values['PLATFORMS']
+                },
+                'generatedAt': template_values['GENERATION_DATE']
+            }
+        
         # 创建 README 文件
         readme_file = cold_start_dir / "README.md"
         readme_content = f"""# ColdStart 项目配置
@@ -623,10 +673,10 @@ logger.logError('模块操作失败', error: e, stackTrace: stackTrace, tag: 'MO
 
 ## 项目信息
 
-- **项目名称：** {project_info['project']['name']}
-- **技术栈：** {project_info['technology']['language']['name']} + {project_info['technology']['framework']['name']}
-- **目标平台：** {', '.join([p['name'] for p in project_info['technology']['platforms']])}
-- **初始化时间：** {project_info['generatedAt']}
+- **项目名称：** {project_info.get('project', {}).get('name', '未知')}
+- **技术栈：** {project_info.get('technology', {}).get('language', {}).get('name', '未知')} + {project_info.get('technology', {}).get('framework', {}).get('name', '未知')}
+- **目标平台：** {', '.join([p.get('name', '') for p in project_info.get('technology', {}).get('platforms', [])])}
+- **初始化时间：** {project_info.get('generatedAt', '未知')}
 """
         with open(readme_file, 'w', encoding='utf-8') as f:
             f.write(readme_content)
