@@ -9,8 +9,7 @@ alwaysApply: true
 2. **构建和发布必须分离（构建标签 vs 发布标签）**
 3. **构建号必须自动递增**
 4. **更新配置文件必须自动生成和推送**
-5. **AI 必须自行调试 GitHub Actions，使用 GitHub CLI 完成工作**
-6. **如果 GitHub CLI 不存在，必须请求用户协助安装或提供命令路径**
+5. **调试 GitHub Actions 必须使用预置脚本，禁止临时组装命令**
 
 ## 工作流程设计
 
@@ -176,17 +175,17 @@ https://github.com/{owner}/{repo}/releases/download/UpdateConfig/update_config_g
 **配置文件结构：**
 ```json
 {
-  "{{ COMPONENT_NAME }}": {
+  "": {
     "version": "1.0.7+13",
     "versionNumber": "1.0.7",
     "platforms": {
-      "{{ PLATFORM }}": {
+      "": {
         "version": "1.0.7+13",
         "versionNumber": "1.0.7",
-        "downloadUrl": "https://github.com/{owner}/{repo}/releases/download/v1.0.7/MyApp_{{ PLATFORM }}_1.0.7build13.zip",
-        "fileName": "MyApp_{{ PLATFORM }}_1.0.7build13.zip",
+        "downloadUrl": "https://github.com/{owner}/{repo}/releases/download/v1.0.7/MyApp__1.0.7build13.zip",
+        "fileName": "MyApp__1.0.7build13.zip",
         "fileType": "zip",
-        "platform": "{{ PLATFORM }}",
+        "platform": "",
         "fileHash": "sha256_hash_value"
       }
     }
@@ -256,6 +255,90 @@ def calculate_file_hash(file_path: str) -> str:
 - `scripts/create_release.sh` - 创建发布 Release
 - `scripts/generate_update_config.py` - 生成更新配置文件
 
+## 调试规则（强制）
+
+### 标准调试流程
+
+**原则：** 调试 GitHub Actions 必须遵循标准流程，使用预置脚本，禁止临时组装命令，禁止交互式操作
+
+**标准流程：**
+1. **启动 workflow 并获取运行 ID**
+   - 使用脚本启动 workflow
+   - 脚本自动获取并返回运行 ID
+
+2. **持续监控 workflow 状态**
+   - 脚本每 10 秒检查一次状态
+   - 显示当前状态和结论
+   - 持续监控直到完成或超时
+
+3. **成功处理**
+   - 如果 workflow 成功完成，任务结束
+
+4. **失败处理**
+   - 如果 workflow 失败，自动获取失败日志
+   - 脚本显示失败日志后自动退出
+   - AI 分析日志定位问题
+   - AI 修复问题并提交
+   - AI 重新运行脚本（回到步骤 1）
+
+**关键约束：**
+- ✅ 脚本必须完全自动化，禁止任何交互式操作（如 `Read-Host`、`input()` 等）
+- ✅ 脚本失败后必须自动退出，不等待用户输入
+- ✅ AI 负责分析日志、修复问题、重新运行脚本
+- ✅ 禁止在脚本中使用循环重试（由 AI 控制重试）
+
+### 必须使用的脚本
+
+**主要脚本（推荐）：**
+- `scripts/run_and_monitor_workflow.ps1` - **完整流程脚本**，包含启动、监控、失败处理
+  ```powershell
+  # 启动并监控 workflow（自动重试）
+  powershell -ExecutionPolicy Bypass -File scripts\run_and_monitor_workflow.ps1 [workflow-name] [version]
+  ```
+
+**辅助脚本：**
+- `scripts/debug_workflow.ps1` - 查看运行状态和失败信息
+- `scripts/monitor_workflow.ps1` - 监控指定运行直到完成
+- `scripts/view_failed_logs.sh` - 查看失败步骤的日志（bash）
+- `scripts/view_job_logs.sh` - 查看特定 job 的日志（bash）
+
+### 标准调试流程示例
+
+```powershell
+# 方式1：使用完整流程脚本（推荐）
+powershell -ExecutionPolicy Bypass -File scripts\run_and_monitor_workflow.ps1 build.yml
+
+# 方式2：手动执行流程
+# Step 1: 启动 workflow
+gh workflow run build.yml
+$runId = (gh run list --workflow=build.yml --limit=1 --json databaseId --jq '.[0].databaseId')
+
+# Step 2: 监控 workflow
+powershell -ExecutionPolicy Bypass -File scripts\monitor_workflow.ps1 -RunId $runId
+
+# Step 3: 如果失败，查看日志
+powershell -ExecutionPolicy Bypass -File scripts\debug_workflow.ps1 -RunId $runId
+```
+
+### 禁止行为
+
+- ❌ 临时组装 `gh run view` 命令进行调试
+- ❌ 使用复杂的 PowerShell 命令组合
+- ❌ 手动拼接 JSON 查询命令
+- ❌ 不使用脚本而直接执行 GitHub CLI 命令
+- ❌ 不遵循标准调试流程
+- ❌ 失败后不查看日志就继续
+- ❌ **在调试脚本中使用交互式操作**（如 `Read-Host`、`input()`、等待用户输入等）
+- ❌ **在脚本中实现自动重试循环**（应由 AI 控制重试流程）
+
+### 必须遵守
+
+- ✅ 必须使用 `scripts/run_and_monitor_workflow.ps1` 或遵循标准流程
+- ✅ 启动 workflow 后必须持续监控状态（每 10 秒检查一次）
+- ✅ 失败后必须使用脚本获取失败日志
+- ✅ 分析日志后修复问题，然后重新执行流程
+- ✅ 所有调试操作都应该通过脚本完成
+
 ## 禁止行为
 
 - ❌ 手动创建 GitHub Release
@@ -264,10 +347,7 @@ def calculate_file_hash(file_path: str) -> str:
 - ❌ 在构建产物文件名中使用 `+` 号（应使用 `build`）
 - ❌ 不计算文件 hash
 - ❌ 不自动递增构建号
-- ❌ **等待用户提供 GitHub Actions 运行信息**
-- ❌ **不使用 GitHub CLI 调试 GitHub Actions**
-- ❌ **不主动检查工作流状态和日志**
-- ❌ **GitHub CLI 不存在时，不请求用户协助安装或提供路径**
+- ❌ 调试时不使用预置脚本，临时组装命令
 
 ## 必须遵守
 
@@ -279,9 +359,6 @@ def calculate_file_hash(file_path: str) -> str:
 - ✅ 必须计算并包含文件 hash
 - ✅ 更新配置文件必须推送到固定的 UpdateConfig Release
 - ✅ 构建产物文件名必须包含版本号（使用 `build` 替代 `+`）
-- ✅ **AI 必须使用 GitHub CLI 自行调试 GitHub Actions**
-- ✅ **AI 必须主动检查工作流状态和日志，不等待用户提供信息**
-- ✅ **如果 GitHub CLI 不存在，必须请求用户协助安装或提供命令路径**
 
 ## 工作流配置要点
 
@@ -305,7 +382,7 @@ concurrency:
 
 ```yaml
 env:
-  {{ BUILD_TOOL }}_VERSION: 'x.y.z'  # 根据项目设置
+  Flutter CLI_VERSION: 'x.y.z'  # 根据项目设置
 ```
 
 ## 多平台构建
@@ -339,105 +416,18 @@ jobs:
 
 ## 故障处理
 
-### AI 调试 GitHub Actions（强制）
-
-**原则：** AI 必须主动使用 GitHub CLI 调试 GitHub Actions，不等待用户提供信息
-
-**必须遵守：**
-- ✅ AI 必须主动检查 GitHub Actions 运行状态
-- ✅ AI 必须主动查看工作流日志
-- ✅ AI 必须主动测试工作流触发
-- ✅ AI 必须主动验证构建产物
-- ✅ 使用 GitHub CLI 完成所有调试操作
-
-**GitHub CLI 检查和使用：**
-
-1. **检查 GitHub CLI 是否安装**
-   ```bash
-   # 检查 gh 命令是否存在
-   which gh  # macOS/Linux
-   where gh  # Windows
-   ```
-
-2. **如果 GitHub CLI 不存在，请求用户协助**
-   - 提供安装命令或安装链接
-   - 或请求用户提供 GitHub CLI 的路径
-   - 或请求用户手动安装
-
-3. **GitHub CLI 常用调试命令**
-   ```bash
-   # 查看工作流列表
-   gh workflow list
-   
-   # 查看工作流运行历史
-   gh run list
-   
-   # 查看特定运行详情
-   gh run view <run-id>
-   
-   # 查看工作流日志
-   gh run view <run-id> --log
-   
-   # 查看失败的工作流
-   gh run list --status failure
-   
-   # 重新运行失败的工作流
-   gh run rerun <run-id>
-   
-   # 查看工作流文件
-   gh workflow view <workflow-name>
-   
-   # 手动触发工作流
-   gh workflow run <workflow-name> [flags]
-   
-   # 查看 Release 列表
-   gh release list
-   
-   # 查看特定 Release
-   gh release view <tag>
-   
-   # 下载构建产物
-   gh run download <run-id>
-   ```
-
-4. **GitHub CLI 认证**
-   ```bash
-   # 检查认证状态
-   gh auth status
-   
-   # 如果未认证，引导用户登录
-   gh auth login
-   ```
-
 ### 构建失败
 
-**AI 必须执行：**
-1. 使用 `gh run list --status failure` 查看失败的运行
-2. 使用 `gh run view <run-id> --log` 查看详细日志
-3. 分析日志中的错误信息
-4. 修复问题后重新触发构建
-5. 验证修复是否成功
-
-**检查项：**
 - 检查构建日志
 - 验证版本号是否正确
 - 检查依赖是否正确
-- 验证环境配置是否正确
 
 ### 发布失败
 
-**AI 必须执行：**
-1. 使用 `gh run list` 查看相关运行状态
-2. 使用 `gh release list` 检查 Release 状态
-3. 使用 `gh run download <run-id>` 下载构建产物验证
-4. 分析失败原因并修复
-
-**检查项：**
 - 检查构建是否完成
 - 验证构建产物是否存在
 - 检查版本标签是否正确
 - 验证 GitHub Token 权限
-- 检查工作流配置是否正确
 
 ## 最佳实践
 
@@ -446,5 +436,3 @@ jobs:
 3. **配置文件验证：** 生成后验证 JSON 格式正确
 4. **错误处理：** 所有步骤都应该有适当的错误处理和日志输出
 5. **可追溯性：** 所有操作都应该记录在 GitHub Actions 日志中
-
-
