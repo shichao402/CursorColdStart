@@ -5,19 +5,134 @@ alwaysApply: true
 
 ## 规则优先级
 
-1. **最高优先级：** 文档管理规则、日志规则、脚本规则、调试规则
+1. **最高优先级：** Git 配置规则（换行符和编码处理）、文档管理规则、日志规则、脚本规则、调试规则
 2. **高优先级：** 安全规则、测试流程规则、构建和部署规则、版本管理规则
 3. **中优先级：** 开发规则
 
 ## 核心原则
 
-1. **文档优先** - 所有文档必须统一管理在 Documents/ 目录，过程性文档放在 temp/ 并添加到 .gitignore
-2. **自动化优先** - AI必须主动执行脚本，不要求用户操作
-3. **脚本优先** - 禁止手动执行命令，脚本失败必须修复脚本
-4. **日志优先** - 所有组件必须先实现日志系统
-5. **主动调试** - AI必须主动收集日志，不等待用户提供信息
-6. **安全优先** - 所有敏感信息必须被清洗并且排除到版本控制之外
-7. **脚手架优先** - 为了简化初始化配置，必须提供初始化脚手架
+1. **Git 配置优先** - 项目初始化时必须配置 Git 换行符和编码处理，确保跨平台兼容性（最高优先级）
+2. **文档优先** - 所有文档必须统一管理在 Documents/ 目录，过程性文档放在 temp/ 并添加到 .gitignore
+3. **自动化优先** - AI必须主动执行脚本，不要求用户操作
+4. **脚本优先** - 禁止手动执行命令，脚本失败必须修复脚本
+5. **日志优先** - 所有组件必须先实现日志系统
+6. **主动调试** - AI必须主动收集日志，不等待用户提供信息
+7. **安全优先** - 所有敏感信息必须被清洗并且排除到版本控制之外
+8. **脚手架优先** - 为了简化初始化配置，必须提供初始化脚手架
+
+## Git 配置规则（最高优先级，强制）
+
+### 核心约束（强制）
+
+1. **项目初始化时必须配置 Git 换行符和编码处理**
+2. **必须创建 `.gitattributes` 文件**，确保文件使用正确的换行符和编码
+3. **必须配置 Git 全局或本地设置**，确保跨平台兼容性
+4. **AI必须在项目初始化时自动配置，不要求用户手动操作**
+
+### Git 配置要求
+
+#### 1. `.gitattributes` 文件（必须）
+
+**原则：** 必须在项目根目录创建 `.gitattributes` 文件，定义文件类型的换行符和编码规则
+
+**实践：**
+```gitattributes
+# 批处理文件使用 CRLF 换行符（Windows）
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Python 文件使用 LF 换行符（Unix）
+*.py text eol=lf
+
+# Shell 脚本使用 LF 换行符（Unix）
+*.sh text eol=lf
+
+# 配置文件使用 LF
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+
+# Markdown 文件使用 LF
+*.md text eol=lf
+*.mdc text eol=lf
+
+# 文本文件默认使用 LF
+*.txt text eol=lf
+
+# 二进制文件
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+```
+
+#### 2. Git 配置设置（必须）
+
+**原则：** 必须配置 Git 的换行符处理方式
+
+**实践：**
+```bash
+# 方式1：配置 Git 全局设置（推荐用于个人开发环境）
+git config --global core.autocrlf true        # Windows
+git config --global core.autocrlf input        # Mac/Linux
+
+# 方式2：配置项目本地设置（推荐用于项目）
+git config core.autocrlf true                  # Windows
+git config core.autocrlf input                 # Mac/Linux
+
+# 方式3：使用 .gitattributes（最推荐，项目级别配置）
+# 在 .gitattributes 中定义，无需额外配置
+```
+
+#### 3. 编码配置（必须）
+
+**原则：** 必须确保文件使用正确的编码，避免跨平台乱码问题
+
+**实践：**
+- **批处理文件（.bat/.cmd）：** 使用 GBK/GB2312 编码（中文 Windows）或 UTF-8 with BOM
+- **Shell 脚本（.sh）：** 使用 UTF-8 编码
+- **Python 文件（.py）：** 使用 UTF-8 编码
+- **配置文件（.json/.yaml/.toml）：** 使用 UTF-8 编码
+- **Markdown 文件（.md/.mdc）：** 使用 UTF-8 编码
+
+**Windows 批处理文件编码处理：**
+```bash
+# 创建批处理文件时使用 GBK 编码
+# PowerShell 示例：
+$content = "..."
+[System.IO.File]::WriteAllText("file.bat", $content, [System.Text.Encoding]::GetEncoding('GB2312'))
+```
+
+### Git 配置检查清单
+
+项目初始化时必须完成：
+
+- [ ] 创建 `.gitattributes` 文件
+- [ ] 配置批处理文件的换行符（CRLF）
+- [ ] 配置脚本文件的换行符（LF）
+- [ ] 配置文本文件的换行符（LF）
+- [ ] 确保批处理文件使用正确的编码（GBK/GB2312 或 UTF-8 with BOM）
+- [ ] 确保其他文件使用 UTF-8 编码
+- [ ] 验证 Git 配置是否正确（`git config --list`）
+
+### 禁止行为
+
+- ❌ 不创建 `.gitattributes` 文件
+- ❌ 不配置 Git 换行符处理
+- ❌ 使用错误的文件编码导致乱码
+- ❌ 要求用户手动配置 Git 设置
+- ❌ 忽略跨平台兼容性问题
+
+### 必须遵守
+
+- ✅ 必须在项目初始化时自动创建 `.gitattributes` 文件
+- ✅ 必须配置正确的换行符规则（批处理文件 CRLF，脚本文件 LF）
+- ✅ 必须确保文件使用正确的编码（批处理文件 GBK，其他文件 UTF-8）
+- ✅ 必须验证 Git 配置是否正确
+- ✅ AI必须主动配置，不要求用户手动操作
 
 ## 初始化脚手架规则（高优先级）
 

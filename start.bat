@@ -11,7 +11,7 @@ set START_PY=%SCRIPT_DIR%coldstart.py
 
 REM 检查虚拟环境是否存在
 if not exist "%VENV_DIR%" (
-    echo ❌ 错误：虚拟环境不存在
+    echo 错误：虚拟环境不存在
     echo.
     echo 请先运行安装脚本创建虚拟环境：
     echo   python install.py
@@ -22,7 +22,7 @@ if not exist "%VENV_DIR%" (
 
 REM 检查虚拟环境中的Python是否存在
 if not exist "%VENV_PYTHON%" (
-    echo ❌ 错误：虚拟环境中的Python不存在: %VENV_PYTHON%
+    echo 错误：虚拟环境中的Python不存在: %VENV_PYTHON%
     echo.
     echo 请重新运行安装脚本：
     echo   python install.py
@@ -31,7 +31,7 @@ if not exist "%VENV_PYTHON%" (
 
 REM 检查coldstart.py是否存在
 if not exist "%START_PY%" (
-    echo ❌ 错误：找不到 coldstart.py: %START_PY%
+    echo 错误：找不到 coldstart.py: %START_PY%
     exit /b 1
 )
 
