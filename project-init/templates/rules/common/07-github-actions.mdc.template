@@ -9,6 +9,8 @@ alwaysApply: true
 2. **构建和发布必须分离（构建标签 vs 发布标签）**
 3. **构建号必须自动递增**
 4. **更新配置文件必须自动生成和推送**
+5. **AI 必须自行调试 GitHub Actions，使用 GitHub CLI 完成工作**
+6. **如果 GitHub CLI 不存在，必须请求用户协助安装或提供命令路径**
 
 ## 工作流程设计
 
@@ -262,6 +264,10 @@ def calculate_file_hash(file_path: str) -> str:
 - ❌ 在构建产物文件名中使用 `+` 号（应使用 `build`）
 - ❌ 不计算文件 hash
 - ❌ 不自动递增构建号
+- ❌ **等待用户提供 GitHub Actions 运行信息**
+- ❌ **不使用 GitHub CLI 调试 GitHub Actions**
+- ❌ **不主动检查工作流状态和日志**
+- ❌ **GitHub CLI 不存在时，不请求用户协助安装或提供路径**
 
 ## 必须遵守
 
@@ -273,6 +279,9 @@ def calculate_file_hash(file_path: str) -> str:
 - ✅ 必须计算并包含文件 hash
 - ✅ 更新配置文件必须推送到固定的 UpdateConfig Release
 - ✅ 构建产物文件名必须包含版本号（使用 `build` 替代 `+`）
+- ✅ **AI 必须使用 GitHub CLI 自行调试 GitHub Actions**
+- ✅ **AI 必须主动检查工作流状态和日志，不等待用户提供信息**
+- ✅ **如果 GitHub CLI 不存在，必须请求用户协助安装或提供命令路径**
 
 ## 工作流配置要点
 
@@ -330,18 +339,105 @@ jobs:
 
 ## 故障处理
 
+### AI 调试 GitHub Actions（强制）
+
+**原则：** AI 必须主动使用 GitHub CLI 调试 GitHub Actions，不等待用户提供信息
+
+**必须遵守：**
+- ✅ AI 必须主动检查 GitHub Actions 运行状态
+- ✅ AI 必须主动查看工作流日志
+- ✅ AI 必须主动测试工作流触发
+- ✅ AI 必须主动验证构建产物
+- ✅ 使用 GitHub CLI 完成所有调试操作
+
+**GitHub CLI 检查和使用：**
+
+1. **检查 GitHub CLI 是否安装**
+   ```bash
+   # 检查 gh 命令是否存在
+   which gh  # macOS/Linux
+   where gh  # Windows
+   ```
+
+2. **如果 GitHub CLI 不存在，请求用户协助**
+   - 提供安装命令或安装链接
+   - 或请求用户提供 GitHub CLI 的路径
+   - 或请求用户手动安装
+
+3. **GitHub CLI 常用调试命令**
+   ```bash
+   # 查看工作流列表
+   gh workflow list
+   
+   # 查看工作流运行历史
+   gh run list
+   
+   # 查看特定运行详情
+   gh run view <run-id>
+   
+   # 查看工作流日志
+   gh run view <run-id> --log
+   
+   # 查看失败的工作流
+   gh run list --status failure
+   
+   # 重新运行失败的工作流
+   gh run rerun <run-id>
+   
+   # 查看工作流文件
+   gh workflow view <workflow-name>
+   
+   # 手动触发工作流
+   gh workflow run <workflow-name> [flags]
+   
+   # 查看 Release 列表
+   gh release list
+   
+   # 查看特定 Release
+   gh release view <tag>
+   
+   # 下载构建产物
+   gh run download <run-id>
+   ```
+
+4. **GitHub CLI 认证**
+   ```bash
+   # 检查认证状态
+   gh auth status
+   
+   # 如果未认证，引导用户登录
+   gh auth login
+   ```
+
 ### 构建失败
 
+**AI 必须执行：**
+1. 使用 `gh run list --status failure` 查看失败的运行
+2. 使用 `gh run view <run-id> --log` 查看详细日志
+3. 分析日志中的错误信息
+4. 修复问题后重新触发构建
+5. 验证修复是否成功
+
+**检查项：**
 - 检查构建日志
 - 验证版本号是否正确
 - 检查依赖是否正确
+- 验证环境配置是否正确
 
 ### 发布失败
 
+**AI 必须执行：**
+1. 使用 `gh run list` 查看相关运行状态
+2. 使用 `gh release list` 检查 Release 状态
+3. 使用 `gh run download <run-id>` 下载构建产物验证
+4. 分析失败原因并修复
+
+**检查项：**
 - 检查构建是否完成
 - 验证构建产物是否存在
 - 检查版本标签是否正确
 - 验证 GitHub Token 权限
+- 检查工作流配置是否正确
 
 ## 最佳实践
 
