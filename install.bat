@@ -1,95 +1,127 @@
 @echo off
 REM 跨平台依赖安装脚本（Windows）
-REM 自动创建虚拟环境并安装依赖
+REM 使用 pyenv 和 pipenv 管理 Python 版本和依赖
 REM Mac/Linux用户请使用 install.sh 或 install.py
 
 setlocal enabledelayedexpansion
 
 echo ==================================================
 echo   项目初始化系统 - 依赖安装
+echo   使用 pyenv + pipenv
 echo ==================================================
 echo.
 
 set SCRIPT_DIR=%~dp0
-set VENV_DIR=%SCRIPT_DIR%.venv
-set REQUIREMENTS_FILE=%SCRIPT_DIR%requirements.txt
+set PIPFILE=%SCRIPT_DIR%Pipfile
+set PYTHON_VERSION_FILE=%SCRIPT_DIR%.python-version
 
-REM 检查Python
-echo [1/4] 检查Python...
-where python >nul 2>&1
+REM 检查 pyenv
+echo [1/4] 检查 pyenv...
+where pyenv >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    set PYTHON_CMD=python
-    for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYTHON_VERSION=%%i
-    echo ✅ 找到: Python !PYTHON_VERSION!
+    echo ✅ pyenv 已安装
+    set PYENV_AVAILABLE=1
 ) else (
-    where python3 >nul 2>&1
-    if %ERRORLEVEL% EQU 0 (
-        set PYTHON_CMD=python3
-        for /f "tokens=2" %%i in ('python3 --version 2^>^&1') do set PYTHON_VERSION=%%i
-        echo ✅ 找到: Python !PYTHON_VERSION!
-    ) else (
-        echo ❌ 错误：未找到Python
-        echo.
-        echo 请安装Python 3.6或更高版本：
-        echo   访问 https://www.python.org/downloads/
-        echo   或使用包管理器：choco install python3
+    echo ❌ pyenv 未安装
+    echo.
+    echo 请安装 pyenv-win: https://github.com/pyenv-win/pyenv-win
+    echo.
+    set /p CONTINUE="是否继续安装（将使用系统 Python）？(y/N): "
+    if /i not "!CONTINUE!"=="y" if /i not "!CONTINUE!"=="yes" (
+        echo 安装已取消
         exit /b 1
     )
+    set PYENV_AVAILABLE=0
 )
 echo.
 
-REM 检查venv模块
-echo [2/4] 检查venv模块...
-%PYTHON_CMD% -m venv --help >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo ✅ venv模块可用
+REM 检查 Python 版本
+echo [2/4] 检查 Python 版本...
+if exist "%PYTHON_VERSION_FILE%" (
+    set /p REQUIRED_VERSION=<"%PYTHON_VERSION_FILE%"
+    echo 📋 项目要求的 Python 版本: !REQUIRED_VERSION!
+    
+    if !PYENV_AVAILABLE! EQU 1 (
+        REM 检查 pyenv 是否已安装该版本
+        pyenv versions | findstr /C:"!REQUIRED_VERSION!" >nul 2>&1
+        if %ERRORLEVEL% EQU 0 (
+            echo ✅ Python !REQUIRED_VERSION! 已安装
+        ) else (
+            echo ⚠️  Python !REQUIRED_VERSION! 未安装
+            echo.
+            echo 正在安装 Python !REQUIRED_VERSION!...
+            pyenv install !REQUIRED_VERSION!
+            if !ERRORLEVEL! NEQ 0 (
+                echo ❌ 安装失败
+                exit /b 1
+            )
+        )
+        
+        REM 设置本地版本
+        echo 设置本地 Python 版本...
+        pyenv local !REQUIRED_VERSION!
+        
+        for /f "tokens=1" %%i in ('pyenv version-name') do set CURRENT_VERSION=%%i
+        echo ✅ 当前 Python 版本: !CURRENT_VERSION!
+    ) else (
+        for /f "tokens=2" %%i in ('python --version 2^>^&1') do set CURRENT_VERSION=%%i
+        echo 当前 Python 版本: !CURRENT_VERSION!
+        echo ⚠️  建议安装 pyenv-win 以使用指定版本
+    )
 ) else (
-    echo ❌ venv模块不可用
+    echo ⚠️  警告：未找到 .python-version 文件
+    for /f "tokens=2" %%i in ('python --version 2^>^&1') do set CURRENT_VERSION=%%i
+    echo 当前 Python 版本: !CURRENT_VERSION!
+)
+echo.
+
+REM 检查 pipenv
+echo [3/4] 检查 pipenv...
+where pipenv >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo ✅ pipenv 已安装
+) else (
+    echo ❌ pipenv 未安装
     echo.
-    echo 请确保Python版本 >= 3.6，venv模块应包含在标准库中
+    echo 正在安装 pipenv...
+    python -m pip install --user pipenv
+    if !ERRORLEVEL! NEQ 0 (
+        echo ❌ pipenv 安装失败
+        echo.
+        echo 请手动安装：
+        echo   python -m pip install --user pipenv
+        echo.
+        echo 如果 pipenv 命令不可用，请将用户 Scripts 目录添加到 PATH：
+        echo   %%APPDATA%%\Python\Python{version}\Scripts
+        exit /b 1
+    )
+    echo ✅ pipenv 安装成功
+    echo.
+    echo ⚠️  提示：如果 pipenv 命令不可用，请将用户 Scripts 目录添加到 PATH
+)
+echo.
+
+REM 检查 Pipfile
+if not exist "%PIPFILE%" (
+    echo ❌ 错误：找不到 Pipfile: %PIPFILE%
     exit /b 1
 )
-echo.
-
-REM 创建虚拟环境
-echo [3/4] 创建虚拟环境...
-if exist "%VENV_DIR%" (
-    echo ✅ 虚拟环境已存在: %VENV_DIR%
-) else (
-    echo 创建虚拟环境: %VENV_DIR%
-    %PYTHON_CMD% -m venv "%VENV_DIR%"
-    if !ERRORLEVEL! NEQ 0 (
-        echo ❌ 创建虚拟环境失败
-        exit /b 1
-    )
-    echo ✅ 虚拟环境创建成功
-)
-echo.
 
 REM 安装依赖
 echo [4/4] 安装依赖...
-if not exist "%REQUIREMENTS_FILE%" (
-    echo ❌ 错误：找不到 requirements.txt: %REQUIREMENTS_FILE%
-    exit /b 1
-)
-
-set VENV_PIP=%VENV_DIR%\Scripts\pip.exe
-if not exist "%VENV_PIP%" (
-    echo ❌ 错误：虚拟环境中找不到pip: %VENV_PIP%
-    exit /b 1
-)
-
-echo 执行: %VENV_PIP% install -r %REQUIREMENTS_FILE%
+echo 执行: pipenv install
 echo.
 
-%VENV_PIP% install -r "%REQUIREMENTS_FILE%"
+cd /d "%SCRIPT_DIR%"
+pipenv install
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo ❌ 安装失败
     echo.
     echo 提示：
     echo 1. 检查网络连接
-    echo 2. 检查requirements.txt文件格式
+    echo 2. 检查 Pipfile 文件格式
+    echo 3. 确保 pyenv-win 已安装并配置正确
     exit /b 1
 )
 
@@ -98,18 +130,15 @@ echo ==================================================
 echo   ✅ 安装完成！
 echo ==================================================
 echo.
-echo 虚拟环境位置：
-echo   %VENV_DIR%
+echo 使用方式：
+echo   使用包装脚本（推荐）：
+echo     start.bat [目标项目目录]
 echo.
-echo 激活虚拟环境：
-echo   %VENV_DIR%\Scripts\activate.bat
+echo   使用 pipenv 直接运行：
+echo     pipenv run python coldstart.py [目标项目目录]
 echo.
-echo 使用虚拟环境运行：
-echo   %VENV_DIR%\Scripts\python.exe coldstart.py init [目标项目目录]
-echo.
-echo 或者激活虚拟环境后直接运行：
-echo   python coldstart.py init [目标项目目录]
+echo   激活虚拟环境：
+echo     pipenv shell
 echo.
 
 endlocal
-

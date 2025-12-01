@@ -1,100 +1,154 @@
 #!/bin/bash
 
 # 跨平台依赖安装脚本（Mac/Linux）
-# 自动创建虚拟环境并安装依赖
+# 使用 pyenv 和 pipenv 管理 Python 版本和依赖
 # Windows用户请使用 install.bat 或 install.py
 
 set -e
 
 echo "=================================================="
 echo "  项目初始化系统 - 依赖安装"
+echo "  使用 pyenv + pipenv"
 echo "=================================================="
 echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENV_DIR="$SCRIPT_DIR/.venv"
-REQUIREMENTS_FILE="$SCRIPT_DIR/requirements.txt"
+PIPFILE="$SCRIPT_DIR/Pipfile"
+PYTHON_VERSION_FILE="$SCRIPT_DIR/.python-version"
 
-# 检查Python
-echo "[1/4] 检查Python..."
-if command -v python3 &> /dev/null; then
-    PYTHON_CMD="python3"
-    PYTHON_VERSION=$(python3 --version)
-    echo "✅ 找到: $PYTHON_VERSION"
-elif command -v python &> /dev/null; then
-    PYTHON_CMD="python"
-    PYTHON_VERSION=$(python --version)
-    echo "✅ 找到: $PYTHON_VERSION"
+# 检查 pyenv
+echo "[1/4] 检查 pyenv..."
+if command -v pyenv &> /dev/null; then
+    echo "✅ pyenv 已安装"
+    PYENV_AVAILABLE=true
 else
-    echo "❌ 错误：未找到Python"
+    echo "❌ pyenv 未安装"
     echo ""
-    echo "请安装Python 3.6或更高版本："
-    echo "  macOS: brew install python3"
-    echo "  Ubuntu/Debian: sudo apt-get install python3 python3-pip"
-    echo "  CentOS/RHEL: sudo yum install python3 python3-pip"
-    exit 1
-fi
-
-# 检查Python版本
-PYTHON_VERSION_NUM=$($PYTHON_CMD -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-if [ "$(echo "$PYTHON_VERSION_NUM < 3.6" | bc 2>/dev/null || echo 0)" = "1" ]; then
-    echo "❌ 错误：需要Python 3.6或更高版本"
-    echo "当前版本: $PYTHON_VERSION_NUM"
-    exit 1
+    echo "请安装 pyenv："
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "  brew install pyenv"
+        echo "  然后添加到 ~/.zshrc 或 ~/.bash_profile："
+        echo '    export PYENV_ROOT="$HOME/.pyenv"'
+        echo '    export PATH="$PYENV_ROOT/bin:$PATH"'
+        echo '    eval "$(pyenv init -)"'
+    else
+        echo "  参考: https://github.com/pyenv/pyenv#installation"
+    fi
+    echo ""
+    read -p "是否继续安装（将使用系统 Python）？(y/N): " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "安装已取消"
+        exit 1
+    fi
+    PYENV_AVAILABLE=false
 fi
 echo ""
 
-# 检查venv模块
-echo "[2/4] 检查venv模块..."
-if $PYTHON_CMD -m venv --help &> /dev/null; then
-    echo "✅ venv模块可用"
+# 检查 Python 版本
+echo "[2/4] 检查 Python 版本..."
+if [ -f "$PYTHON_VERSION_FILE" ]; then
+    REQUIRED_VERSION=$(cat "$PYTHON_VERSION_FILE" | tr -d '[:space:]')
+    echo "📋 项目要求的 Python 版本: $REQUIRED_VERSION"
+    
+    if [ "$PYENV_AVAILABLE" = true ]; then
+        # 检查 pyenv 是否已安装该版本（支持精确匹配和主次版本匹配）
+        INSTALLED_VERSIONS=$(pyenv versions --bare 2>/dev/null || echo "")
+        VERSION_INSTALLED=false
+        
+        if [ -n "$INSTALLED_VERSIONS" ]; then
+            while IFS= read -r ver; do
+                if [ "$ver" = "$REQUIRED_VERSION" ] || [[ "$ver" == "$REQUIRED_VERSION"* ]]; then
+                    VERSION_INSTALLED=true
+                    break
+                fi
+            done <<< "$INSTALLED_VERSIONS"
+        fi
+        
+        if [ "$VERSION_INSTALLED" = false ]; then
+            echo "⚠️  Python $REQUIRED_VERSION 未安装"
+            echo ""
+            echo "正在使用 pyenv 安装 Python $REQUIRED_VERSION..."
+            echo "（这可能需要几分钟时间）"
+            echo ""
+            pyenv install "$REQUIRED_VERSION" || {
+                echo "❌ 安装失败"
+                echo ""
+                echo "请手动安装："
+                echo "  pyenv install $REQUIRED_VERSION"
+                exit 1
+            }
+            echo "✅ Python $REQUIRED_VERSION 安装成功"
+        else
+            echo "✅ Python $REQUIRED_VERSION 已安装"
+        fi
+        
+        # 设置本地版本
+        echo "设置本地 Python 版本..."
+        cd "$SCRIPT_DIR"
+        pyenv local "$REQUIRED_VERSION" || {
+            echo "⚠️  设置本地版本失败，继续使用当前版本"
+        }
+        
+        CURRENT_VERSION=$(pyenv version-name 2>/dev/null || echo "未知")
+        echo "✅ 当前 Python 版本: $CURRENT_VERSION"
+    else
+        CURRENT_VERSION=$(python3 --version 2>&1 | awk '{print $2}' | cut -d. -f1,2)
+        echo "当前 Python 版本: $CURRENT_VERSION"
+        echo "⚠️  建议安装 pyenv 以使用指定版本"
+    fi
 else
-    echo "❌ venv模块不可用"
-    echo ""
-    echo "请安装python3-venv："
-    echo "  Ubuntu/Debian: sudo apt-get install python3-venv"
-    echo "  CentOS/RHEL: sudo yum install python3-venv"
-    exit 1
+    echo "⚠️  警告：未找到 .python-version 文件"
+    CURRENT_VERSION=$(python3 --version 2>&1 | awk '{print $2}' | cut -d. -f1,2)
+    echo "当前 Python 版本: $CURRENT_VERSION"
 fi
 echo ""
 
-# 创建虚拟环境
-echo "[3/4] 创建虚拟环境..."
-if [ -d "$VENV_DIR" ]; then
-    echo "✅ 虚拟环境已存在: $VENV_DIR"
+# 检查 pipenv
+echo "[3/4] 检查 pipenv..."
+if command -v pipenv &> /dev/null; then
+    echo "✅ pipenv 已安装"
 else
-    echo "创建虚拟环境: $VENV_DIR"
-    $PYTHON_CMD -m venv "$VENV_DIR" || {
-        echo "❌ 创建虚拟环境失败"
+    echo "❌ pipenv 未安装"
+    echo ""
+    echo "正在安装 pipenv..."
+    pip3 install --user pipenv || {
+        echo "❌ pipenv 安装失败"
+        echo ""
+        echo "请手动安装："
+        echo "  pip3 install --user pipenv"
+        echo ""
+        echo "如果 pipenv 命令不可用，请将 ~/.local/bin 添加到 PATH"
         exit 1
     }
-    echo "✅ 虚拟环境创建成功"
+    echo "✅ pipenv 安装成功"
+    echo ""
+    echo "⚠️  提示：如果 pipenv 命令不可用，请将 ~/.local/bin 添加到 PATH"
+    echo "  添加到 ~/.zshrc 或 ~/.bash_profile："
+    echo '    export PATH="$HOME/.local/bin:$PATH"'
 fi
 echo ""
+
+# 检查 Pipfile
+if [ ! -f "$PIPFILE" ]; then
+    echo "❌ 错误：找不到 Pipfile: $PIPFILE"
+    exit 1
+fi
 
 # 安装依赖
 echo "[4/4] 安装依赖..."
-if [ ! -f "$REQUIREMENTS_FILE" ]; then
-    echo "❌ 错误：找不到 requirements.txt: $REQUIREMENTS_FILE"
-    exit 1
-fi
-
-VENV_PIP="$VENV_DIR/bin/pip"
-if [ ! -f "$VENV_PIP" ]; then
-    echo "❌ 错误：虚拟环境中找不到pip: $VENV_PIP"
-    exit 1
-fi
-
-echo "执行: $VENV_PIP install -r $REQUIREMENTS_FILE"
+echo "执行: pipenv install"
 echo ""
 
-$VENV_PIP install -r "$REQUIREMENTS_FILE" || {
+cd "$SCRIPT_DIR"
+pipenv install || {
     echo ""
     echo "❌ 安装失败"
     echo ""
     echo "提示："
     echo "1. 检查网络连接"
-    echo "2. 检查requirements.txt文件格式"
+    echo "2. 检查 Pipfile 文件格式"
+    echo "3. 确保 pyenv 已安装并配置正确"
     exit 1
 }
 
@@ -103,16 +157,13 @@ echo "=================================================="
 echo "  ✅ 安装完成！"
 echo "=================================================="
 echo ""
-echo "虚拟环境位置："
-echo "  $VENV_DIR"
+echo "使用方式："
+echo "  使用包装脚本（推荐）："
+echo "    ./start [目标项目目录]"
 echo ""
-echo "激活虚拟环境："
-echo "  source $VENV_DIR/bin/activate"
+echo "  使用 pipenv 直接运行："
+echo "    pipenv run python coldstart.py [目标项目目录]"
 echo ""
-echo "使用虚拟环境运行："
-echo "  $VENV_DIR/bin/python coldstart.py init [目标项目目录]"
+echo "  激活虚拟环境："
+echo "    pipenv shell"
 echo ""
-echo "或者激活虚拟环境后直接运行："
-echo "  python coldstart.py init [目标项目目录]"
-echo ""
-
