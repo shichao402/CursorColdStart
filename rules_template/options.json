@@ -1,0 +1,135 @@
+{
+  "languages": [
+    {
+      "id": "dart",
+      "name": "Dart",
+      "codeLanguage": "dart",
+      "default": true,
+      "frameworks": [
+        {
+          "id": "flutter",
+          "name": "Flutter",
+          "buildTool": "Flutter CLI",
+          "default": true
+        },
+        {
+          "id": "dart",
+          "name": "纯Dart",
+          "buildTool": "Dart CLI"
+        }
+      ]
+    },
+    {
+      "id": "typescript",
+      "name": "TypeScript/JavaScript",
+      "codeLanguage": "typescript",
+      "frameworks": [
+        {
+          "id": "react",
+          "name": "React",
+          "buildTool": "npm/yarn",
+          "default": true
+        },
+        {
+          "id": "vue",
+          "name": "Vue",
+          "buildTool": "npm/yarn"
+        },
+        {
+          "id": "nodejs",
+          "name": "Node.js",
+          "buildTool": "npm/yarn"
+        }
+      ]
+    },
+    {
+      "id": "python",
+      "name": "Python",
+      "codeLanguage": "python",
+      "frameworks": [
+        {
+          "id": "django",
+          "name": "Django",
+          "buildTool": "pip",
+          "default": true
+        },
+        {
+          "id": "fastapi",
+          "name": "FastAPI",
+          "buildTool": "pip"
+        },
+        {
+          "id": "python",
+          "name": "纯Python",
+          "buildTool": "pip"
+        }
+      ]
+    },
+    {
+      "id": "kotlin",
+      "name": "Kotlin/Java",
+      "codeLanguage": "kotlin",
+      "frameworks": [
+        {
+          "id": "android",
+          "name": "Android",
+          "buildTool": "Gradle",
+          "default": true
+        },
+        {
+          "id": "spring",
+          "name": "Spring Boot",
+          "buildTool": "Gradle"
+        }
+      ]
+    },
+    {
+      "id": "swift",
+      "name": "Swift",
+      "codeLanguage": "swift",
+      "frameworks": [
+        {
+          "id": "ios",
+          "name": "iOS",
+          "buildTool": "Xcode",
+          "default": true
+        }
+      ]
+    }
+  ],
+  "platforms": [
+    {
+      "id": "android",
+      "name": "Android"
+    },
+    {
+      "id": "ios",
+      "name": "iOS"
+    },
+    {
+      "id": "macos",
+      "name": "macOS"
+    },
+    {
+      "id": "windows",
+      "name": "Windows"
+    },
+    {
+      "id": "linux",
+      "name": "Linux"
+    },
+    {
+      "id": "web",
+      "name": "Web",
+      "default": true
+    }
+  ],
+  "rulePriorities": {
+    "common": 0,
+    "languages": 10,
+    "frameworks": 20,
+    "platforms": 30
+  }
+}
+
+

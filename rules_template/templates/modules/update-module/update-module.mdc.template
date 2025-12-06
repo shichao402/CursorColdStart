@@ -1,0 +1,145 @@
+---
+alwaysApply: true
+---
+# {{ MODULE_NAME }}更新模块规则
+
+## 模块信息
+
+- **模块名称：** {{ MODULE_NAME }}
+- **模块路径：** {{ MODULE_PATH }}
+- **模块类型：** 更新模块
+- **应用项目：** {{ PROJECT_NAME }}
+
+## 核心约束（强制）
+
+1. **更新模块必须实现统一的更新接口**
+2. **更新流程必须可中断和可恢复**
+3. **更新过程必须记录详细日志**
+4. **更新失败必须提供回滚机制**
+
+## 更新模块设计原则
+
+### 1. 统一更新接口
+
+**原则：** 所有更新操作必须通过统一的更新接口进行
+
+**实践：**
+```{{ CODE_LANGUAGE }}
+// ✅ 好的做法 - 统一更新接口
+class {{ MODULE_NAME }}UpdateManager {
+  Future<UpdateResult> checkUpdate() async { ... }
+  Future<UpdateResult> downloadUpdate() async { ... }
+  Future<UpdateResult> installUpdate() async { ... }
+  Future<UpdateResult> applyUpdate() async { ... }
+}
+
+// ❌ 不好的做法 - 分散的更新逻辑
+void checkUpdate() { ... }
+void downloadUpdate() { ... }
+void installUpdate() { ... }
+```
+
+### 2. 可中断和可恢复
+
+**原则：** 更新流程必须支持中断和恢复
+
+**实践：**
+- 保存更新状态到本地存储
+- 支持断点续传
+- 支持从任意步骤恢复
+
+### 3. 详细日志记录
+
+**原则：** 更新过程必须记录详细日志
+
+**实践：**
+```{{ CODE_LANGUAGE }}
+// ✅ 好的做法 - 详细日志
+logger.log('开始检查更新', tag: 'UPDATE');
+logger.log('检查更新服务器: ${updateUrl}', tag: 'UPDATE');
+logger.log('发现新版本: ${newVersion}', tag: 'UPDATE');
+logger.logError('更新检查失败', error: e, stackTrace: stackTrace, tag: 'UPDATE');
+```
+
+### 4. 回滚机制
+
+**原则：** 更新失败必须提供回滚机制
+
+**实践：**
+- 保存更新前的版本信息
+- 提供版本回滚接口
+- 自动检测更新失败并触发回滚
+
+## 更新流程
+
+### 标准更新流程
+
+1. **检查更新**
+   - 连接更新服务器
+   - 获取最新版本信息
+   - 比较当前版本和最新版本
+   - 记录检查结果
+
+2. **下载更新**
+   - 验证下载地址
+   - 下载更新包
+   - 验证下载完整性
+   - 记录下载进度
+
+3. **安装更新**
+   - 验证更新包
+   - 备份当前版本
+   - 安装更新包
+   - 验证安装结果
+
+4. **应用更新**
+   - 应用更新配置
+   - 重启应用（如需要）
+   - 验证更新结果
+   - 清理临时文件
+
+### 错误处理
+
+- **网络错误：** 记录错误，支持重试
+- **下载失败：** 支持断点续传
+- **安装失败：** 自动回滚到上一版本
+- **验证失败：** 拒绝应用更新
+
+## 禁止行为
+
+- ❌ 不记录更新日志
+- ❌ 不支持更新中断和恢复
+- ❌ 不提供回滚机制
+- ❌ 不验证更新包完整性
+- ❌ 不备份当前版本
+
+## 必须遵守
+
+- ✅ 必须实现统一的更新接口
+- ✅ 必须支持更新流程中断和恢复
+- ✅ 必须记录详细的更新日志
+- ✅ 必须提供回滚机制
+- ✅ 必须验证更新包完整性
+- ✅ 必须备份当前版本
+- ✅ 必须使用项目统一的日志服务
+
+## 更新模块文件结构
+
+```
+{{ MODULE_PATH }}/
+├── update_manager.{{ CODE_LANGUAGE_EXT }}
+├── update_service.{{ CODE_LANGUAGE_EXT }}
+├── update_model.{{ CODE_LANGUAGE_EXT }}
+└── update_config.{{ CODE_LANGUAGE_EXT }}
+```
+
+## 日志标签
+
+更新模块使用以下日志标签：
+- `UPDATE` - 更新流程日志
+- `UPDATE_CHECK` - 更新检查日志
+- `UPDATE_DOWNLOAD` - 更新下载日志
+- `UPDATE_INSTALL` - 更新安装日志
+- `UPDATE_ROLLBACK` - 更新回滚日志
+
+

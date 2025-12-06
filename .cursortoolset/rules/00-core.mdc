@@ -1,0 +1,210 @@
+---
+alwaysApply: true
+---
+# CursorColdStart 项目开发核心规则
+
+> **重要：** 这是 CursorColdStart 项目的**开发**规则，用于指导代码编写、构建和运行。
+> 
+> **相关规则：** 关于规则提取和整合流程，请参考 `00-project-maintenance.mdc`
+
+## 🎯 项目概述
+
+CursorColdStart 是一个项目AI冷启动初始化系统，使用 Go 语言实现，支持跨平台（Windows/Mac/Linux）。
+
+- **技术栈：** Go 1.21+
+- **项目类型：** CLI 工具
+- **主要功能：** 项目初始化、模板处理、规则注入
+
+## 📁 项目结构
+
+```
+CursorColdStart/
+├── cmd/coldstart/          # 主程序入口
+├── internal/               # 内部模块（不对外暴露）
+│   ├── initializer/       # 项目初始化器
+│   ├── commands/          # 命令执行器
+│   └── template/          # 模板处理器
+├── pkg/utils/             # 工具函数（可对外暴露）
+├── rules_template/        # 规则模板目录（核心资产）
+│   ├── templates/         # Go Template 模板
+│   │   ├── rules/        # 规则模板
+│   │   └── modules/      # 模块模板
+│   └── options.json       # 选项配置
+├── scripts/               # 脚本目录
+├── docs/                  # 文档目录
+├── .cursor/rules/         # 本项目的 Cursor 规则
+├── .github/workflows/     # CI/CD 工作流
+├── package.json           # CursorToolset 包配置
+├── go.mod                 # Go 模块文件
+├── Makefile               # 构建脚本
+└── bin/                   # 构建输出目录
+```
+
+## 🔧 开发规范
+
+### 代码组织
+
+1. **包结构**
+   - `cmd/` - 可执行程序入口
+   - `internal/` - 内部代码，不对外暴露
+   - `pkg/` - 可复用的公共代码
+
+2. **命名规范**
+   - 包名：小写，简短
+   - 函数名：驼峰式，公开函数首字母大写
+   - 变量名：驼峰式，简洁明了
+
+3. **错误处理**
+   - 所有可能失败的操作必须检查错误
+   - 使用 `fmt.Errorf` 包装错误，提供上下文
+   - 错误信息使用中文，清晰描述问题
+
+### 代码质量
+
+1. **必须使用 `go fmt` 格式化代码**
+2. **必须通过 `go vet` 检查**
+3. **禁止忽略错误返回值**（除非有明确理由）
+4. **函数长度控制在 50 行以内**（复杂逻辑拆分）
+
+### 模板处理
+
+1. **模板目录：** `rules_template/`
+2. **模板引擎：** Go Template（标准库 `text/template`）
+3. **模板转换：** 自动将 Jinja2 语法转换为 Go Template 语法
+4. **模板文件：** 使用 `.template` 扩展名
+
+## 🚀 构建和运行
+
+### 构建
+
+```bash
+# 构建当前平台
+make build
+
+# 构建所有平台
+make build-all
+
+# 直接使用 go build
+go build -o bin/coldstart ./cmd/coldstart
+```
+
+### 运行
+
+```bash
+# 初始化项目
+./bin/coldstart init ./my-project
+
+# 查看可用选项
+./bin/coldstart list
+```
+
+### 开发
+
+```bash
+# 格式化代码
+make fmt
+
+# 代码检查
+make vet
+
+# 运行测试
+make test
+
+# 全部检查
+make check
+```
+
+## 📝 文件管理
+
+### 重要目录
+
+1. **`rules_template/`** - 规则模板目录
+   - 包含所有模板文件和配置
+   - 模板使用 Go Template 语法
+   - 配置文件使用 JSON 格式
+
+2. **`bin/`** - 构建输出目录
+   - 包含编译后的可执行文件
+   - 已添加到 `.gitignore`
+
+3. **`.cold-start-staging/`** - 临时工作目录
+   - 用于项目初始化过程中的临时文件
+   - 已添加到 `.gitignore`
+
+### 配置文件
+
+1. **`go.mod`** - Go 模块依赖管理
+2. **`package.json`** - CursorToolset 包配置（必需）
+3. **`Makefile`** - 构建脚本
+4. **`.gitignore`** - Git 忽略规则
+
+## 🔄 工作流程
+
+### 命令系统（原子命令模式）
+
+```bash
+coldstart init <target-dir>    # 初始化项目
+coldstart list [type]          # 列出可用选项
+coldstart version              # 显示版本
+coldstart help                 # 显示帮助
+```
+
+### init 命令流程
+
+1. **首次执行** - 生成空配置文件 + 通用规则
+   - `.cursor-cold-start/config/project.json`
+   - `.cursor-cold-start/config/technology.json`
+   - `.cursor-cold-start/config/features.json`
+   - `.cursor/rules/00-core.mdc`
+
+2. **再次执行** - 检查配置 + 生成定制规则
+   - 检查必填字段是否完整
+   - 根据配置生成语言/框架/平台规则
+
+## ⚠️ 禁止行为
+
+- ❌ 不要修改 `rules_template/` 目录中的模板文件结构（除非必要）
+- ❌ 不要硬编码路径，使用相对路径或配置
+- ❌ 不要忽略错误返回值
+- ❌ 不要在代码中使用 `print()`，使用 `fmt.Print` 或日志
+- ❌ 不要提交 `bin/` 目录中的文件
+
+## ✅ 必须遵守
+
+- ✅ 所有代码必须通过 `go fmt` 和 `go vet` 检查
+- ✅ 所有错误必须正确处理和返回
+- ✅ 所有用户输入必须验证
+- ✅ 所有文件操作必须检查错误
+- ✅ 保持代码简洁和可读性
+- ✅ 遵循 Go 语言最佳实践
+
+## 🔍 调试和测试
+
+### 调试
+
+1. 使用 `fmt.Printf` 输出调试信息（开发时）
+2. 检查日志文件（如果存在）
+3. 使用 `go run` 直接运行进行调试
+
+### 测试
+
+```bash
+# 运行所有测试
+make test
+
+# 运行特定包的测试
+go test ./internal/initializer
+```
+
+## 📚 相关文档
+
+- `README.md` - 项目主文档
+- `package.json` - CursorToolset 包配置
+- `.cursortoolset/docs/package-dev-guide.md` - CursorToolset 开发指南
+
+## 🎯 开发目标
+
+1. **保持代码质量** - 遵循 Go 最佳实践
+2. **提高可维护性** - 代码清晰、结构合理
+3. **确保跨平台兼容** - 支持 Windows/Mac/Linux
+4. **优化性能** - 减少资源占用，提高执行效率

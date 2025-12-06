@@ -1,0 +1,51 @@
+{
+  "author": "CursorColdStart Team",
+  "bin": {
+    "coldstart": {
+      "darwin-amd64": "bin/coldstart-darwin-amd64",
+      "darwin-arm64": "bin/coldstart-darwin-arm64",
+      "linux-amd64": "bin/coldstart-linux-amd64",
+      "linux-arm64": "bin/coldstart-linux-arm64",
+      "windows-amd64": "bin/coldstart-windows-amd64.exe",
+      "windows-arm64": "bin/coldstart-windows-arm64.exe"
+    }
+  },
+  "build": {
+    "entry": "cmd/coldstart",
+    "output": "bin",
+    "platforms": [
+      "darwin-amd64",
+      "darwin-arm64",
+      "linux-amd64",
+      "linux-arm64",
+      "windows-amd64",
+      "windows-arm64"
+    ],
+    "type": "go"
+  },
+  "cursortoolset": {
+    "minVersion": "1.0.0"
+  },
+  "description": "项目AI冷启动初始化系统 - 使用 Go 实现的跨平台脚手架工具，帮助新项目快速启动并配置 Cursor AI 规则",
+  "displayName": "Cursor Cold Start",
+  "dist": {
+    "sha256": "TODO: 发布时自动填写",
+    "tarball": "cursor-cold-start-2.0.0.tar.gz"
+  },
+  "keywords": [
+    "cursor",
+    "ai",
+    "scaffold",
+    "project-init",
+    "template",
+    "go",
+    "toolset"
+  ],
+  "license": "MIT",
+  "name": "cursor-code-start",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shichao402/CursorColdStart.git"
+  },
+  "version": "2.0.0"
+}

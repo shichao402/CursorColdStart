@@ -1,0 +1,353 @@
+---
+alwaysApply: true
+---
+# GitHub Actions CI/CD 规则 - 高优先级
+
+## 核心约束（强制）
+
+1. **CI/CD 流程必须完全自动化**
+2. **构建和发布必须分离（构建标签 vs 发布标签）**
+3. **构建号必须自动递增**
+4. **更新配置文件必须自动生成和推送**
+5. **所有操作必须完全自动化**
+
+## 工作流程设计
+
+### 两阶段发布流程
+
+#### 阶段1：构建（Build）
+
+**触发条件：** 推送 `build*` 标签（如 `build1.0.7`）
+
+**执行步骤：**
+1. 并行构建所有平台
+2. 构建完成后自动递增构建号
+3. 提交构建号更新到仓库
+4. 上传构建产物到 GitHub Actions artifacts
+
+**标签格式：** `build{version}`（如 `build1.0.7`）
+
+#### 阶段2：发布（Release）
+
+**触发条件：** 手动触发或推送 `v*` 标签（如 `v1.0.7`）
+
+**执行步骤：**
+1. 查找对应的构建标签和构建产物
+2. 创建 GitHub Release
+3. 上传构建产物到 Release
+4. 生成更新配置文件
+5. 推送配置文件到固定的 UpdateConfig Release
+
+**标签格式：** `v{version}`（如 `v1.0.7`）
+
+## GitHub Actions Workflow 结构
+
+### 主构建工作流（build.yml）
+
+```yaml
+name: Build All Platforms
+
+on:
+  push:
+    tags:
+      - 'build*'  # 当推送 build* 标签时触发
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build-platform-1:
+    # 平台1构建
+  build-platform-2:
+    # 平台2构建
+  increment-build-number:
+    # 自动递增构建号
+    needs: [build-platform-1, build-platform-2]
+    steps:
+      - 从 VERSION.yaml 读取当前版本号
+      - 递增构建号
+      - 提交并推送更新
+```
+
+### 发布工作流（release.yml）
+
+```yaml
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（如 1.0.7）'
+        required: false
+        type: string
+
+jobs:
+  create-release:
+    steps:
+      - 查找构建标签和构建产物
+      - 从构建标签的 VERSION.yaml 读取版本号
+      - 下载构建产物
+      - 计算文件 hash
+      - 生成更新配置文件
+      - 创建 GitHub Release
+      - 上传构建产物
+      - 创建/更新 UpdateConfig Release
+      - 推送更新配置文件
+```
+
+## 版本号处理
+
+### 从 VERSION.yaml 读取
+
+**原则：** 所有版本号操作必须从 `VERSION.yaml` 文件读取
+
+**实践：**
+```yaml
+- name: Extract version
+  run: |
+    # 使用版本管理工具提取版本号
+    python3 scripts/lib/version_manager.py extract component --json
+```
+
+### 自动同步到项目配置
+
+**原则：** 构建前必须同步版本号到项目配置文件
+
+**实践：**
+```yaml
+- name: Sync version to project config
+  run: |
+    python3 scripts/lib/version_manager.py extract component \
+      --sync path/to/project-config
+```
+
+### 构建号自动递增
+
+**原则：** 构建完成后自动递增构建号并提交
+
+**实践：**
+```yaml
+- name: Increment build number
+  run: |
+    python3 scripts/lib/version_manager.py bump component build
+    git add VERSION.yaml
+    git commit -m "Build: Increment build number"
+    git push origin main
+```
+
+## 构建产物管理
+
+### 文件命名规则
+
+**原则：** 构建产物文件名必须包含版本号，使用 `build` 替代 `+` 避免 URL 特殊字符问题
+
+**格式：** `{project_name}_{platform}_{version_build}.zip`
+
+**示例：**
+- `MyApp_macos_1.0.7build13.zip`
+- `MyApp_windows_1.0.7build13.zip`
+- `MyApp_android_1.0.7build13.zip`
+
+### 内部文件命名
+
+**原则：** ZIP 包内的安装文件使用固定命名，不包含版本号
+
+**原因：** 
+- 版本信息由 ZIP 文件名和 hash 保证
+- 简化更新逻辑
+- 避免文件名冲突
+
+**示例：**
+- macOS: ZIP 内包含 `MyApp_macos.dmg`（固定命名）
+- Windows: ZIP 内包含 `MyApp_windows_setup.exe`（固定命名）
+- Android: ZIP 内包含 `MyApp_android.apk`（固定命名）
+
+## 更新配置文件
+
+### 配置文件格式
+
+**位置：** 固定的 GitHub Release（标签：`UpdateConfig`）
+
+**URL 格式：**
+```
+https://github.com/{owner}/{repo}/releases/download/UpdateConfig/update_config_github.json
+```
+
+**配置文件结构：**
+```json
+{
+  "": {
+    "version": "1.0.7+13",
+    "versionNumber": "1.0.7",
+    "platforms": {
+      "": {
+        "version": "1.0.7+13",
+        "versionNumber": "1.0.7",
+        "downloadUrl": "https://github.com/{owner}/{repo}/releases/download/v1.0.7/MyApp__1.0.7build13.zip",
+        "fileName": "MyApp__1.0.7build13.zip",
+        "fileType": "zip",
+        "platform": "",
+        "fileHash": "sha256_hash_value"
+      }
+    }
+  },
+  "updateCheckUrl": "https://github.com/{owner}/{repo}/releases/download/UpdateConfig/update_config_github.json",
+  "lastUpdated": "2024-01-01T12:00:00Z"
+}
+```
+
+### 文件 Hash 计算
+
+**原则：** 所有构建产物必须计算 SHA256 hash
+
+**实践：**
+```python
+import hashlib
+
+def calculate_file_hash(file_path: str) -> str:
+    sha256_hash = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    return sha256_hash.hexdigest().lower()
+```
+
+## 发布流程
+
+### 标准发布流程
+
+1. **更新版本号**
+   ```bash
+   ./scripts/version.sh bump component minor
+   ./scripts/version.sh sync component
+   ```
+
+2. **提交代码**
+   ```bash
+   git add VERSION.yaml project-config-file
+   git commit -m "Bump version to x.y.z"
+   git push origin main
+   ```
+
+3. **创建构建标签**
+   ```bash
+   ./scripts/create_build_tags.sh
+   # 或手动创建
+   git tag build1.0.7
+   git push origin build1.0.7
+   ```
+
+4. **等待构建完成**
+   - 查看 GitHub Actions 页面
+   - 等待所有平台构建完成
+   - 构建号自动递增
+
+5. **创建发布**
+   ```bash
+   ./scripts/create_release.sh 1.0.7
+   # 或手动触发 release.yml workflow
+   ```
+
+### 自动化脚本
+
+项目必须提供以下脚本：
+
+- `scripts/create_build_tags.sh` - 创建构建标签并触发构建
+- `scripts/create_release.sh` - 创建发布 Release
+- `scripts/generate_update_config.py` - 生成更新配置文件
+
+## 禁止行为
+
+- ❌ 手动创建 GitHub Release
+- ❌ 手动上传构建产物
+- ❌ 手动生成更新配置文件
+- ❌ 在构建产物文件名中使用 `+` 号（应使用 `build`）
+- ❌ 不计算文件 hash
+- ❌ 不自动递增构建号
+
+## 必须遵守
+
+- ✅ 必须使用两阶段发布流程（构建 + 发布）
+- ✅ 构建标签格式：`build{version}`
+- ✅ 发布标签格式：`v{version}`
+- ✅ 构建号必须自动递增
+- ✅ 必须自动生成更新配置文件
+- ✅ 必须计算并包含文件 hash
+- ✅ 更新配置文件必须推送到固定的 UpdateConfig Release
+- ✅ 构建产物文件名必须包含版本号（使用 `build` 替代 `+`）
+
+## 工作流配置要点
+
+### 权限配置
+
+```yaml
+permissions:
+  contents: write  # 创建 release 和推送代码需要
+  actions: read    # 读取其他 workflow run 的 artifacts
+```
+
+### 并发控制
+
+```yaml
+concurrency:
+  group: create-release
+  cancel-in-progress: false  # 排队等待，不取消正在运行的流程
+```
+
+### 环境变量
+
+```yaml
+env:
+  Flutter CLI_VERSION: 'x.y.z'  # 根据项目设置
+```
+
+## 多平台构建
+
+### 并行构建
+
+所有平台的构建应该并行执行：
+
+```yaml
+jobs:
+  build-platform-1:
+    # ...
+  build-platform-2:
+    # ...
+  build-platform-3:
+    # ...
+  
+  increment-build-number:
+    needs: [build-platform-1, build-platform-2, build-platform-3]
+    # ...
+```
+
+### 平台特定配置
+
+每个平台的构建工作流应该：
+- 使用可重用工作流（`workflow_call`）
+- 从 VERSION.yaml 同步版本号
+- 生成固定命名的安装文件
+- 打包为包含版本号的 ZIP 文件
+- 上传到 artifacts
+
+## 故障处理
+
+### 构建失败
+
+- 检查构建日志
+- 验证版本号是否正确
+- 检查依赖是否正确
+
+### 发布失败
+
+- 检查构建是否完成
+- 验证构建产物是否存在
+- 检查版本标签是否正确
+- 验证 GitHub Token 权限
+
+## 最佳实践
+
+1. **版本号一致性：** 确保标签版本号与 VERSION.yaml 中的版本号一致
+2. **构建产物验证：** 发布前验证所有构建产物存在且正确
+3. **配置文件验证：** 生成后验证 JSON 格式正确
+4. **错误处理：** 所有步骤都应该有适当的错误处理和日志输出
+5. **可追溯性：** 所有操作都应该记录在 GitHub Actions 日志中

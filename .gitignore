@@ -1,15 +1,40 @@
-# .gitignore
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+bin/
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
 .cold-start-staging/
 
-# Python虚拟环境
-.venv/
-venv/
-env/
-ENV/
+# Build artifacts
+*.tar.gz
+*.zip
 
-# Python缓存
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# Temporary docs
+docs/temp/*
+!docs/temp/.gitkeep

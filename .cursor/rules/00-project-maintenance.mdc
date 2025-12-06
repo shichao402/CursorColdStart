@@ -3,7 +3,9 @@ alwaysApply: true
 ---
 # CursorColdStart 项目维护规则
 
-> **重要：** 这是本项目（CursorColdStart）的维护规则。AI助手在处理本项目时必须遵循这些规则。
+> **重要：** 这是 CursorColdStart 项目的**维护**规则，用于指导规则模板的提取和整合。
+> 
+> **相关规则：** 关于项目开发规范，请参考 `00-core.mdc`
 
 ## 🎯 项目目标
 
@@ -25,14 +27,14 @@ CursorColdStart 是一个项目初始化系统，通过组件化的规则模板�
 ### 步骤1：配置目标项目
 
 **AI操作：**
-1. 检查 `project-init/extract/projects/` 目录
+1. 检查 `rules_template/extract/projects/` 目录
 2. 如果项目不存在，询问用户项目路径
 3. 创建软链接或记录项目路径
 
 **命令：**
 ```bash
 # 创建软链接
-cd project-init/extract/projects
+cd rules_template/extract/projects
 ln -s /path/to/target-project project-name
 ```
 
@@ -61,8 +63,8 @@ ln -s /path/to/target-project project-name
    - 记录应用场景
 
 **输出：**
-- 生成分析报告到 `project-init/extract/analysis/[project-name]-analysis.md`
-- 使用模板：`project-init/extract/analysis/template-analysis-report.md`
+- 生成分析报告到 `rules_template/extract/analysis/[project-name]-analysis.md`
+- 使用模板：`rules_template/extract/analysis/template-analysis-report.md`
 
 ### 步骤3：提取规则
 
@@ -74,7 +76,7 @@ ln -s /path/to/target-project project-name
 
 **规则文件格式：**
 - 文件名：`[category]-[description].md`
-- 位置：`project-init/extract/rules/[category]/`
+- 位置：`rules_template/extract/rules/[category]/`
 - 内容：规则草案 + 来源项目 + 应用场景
 
 **规则内容模板：**
@@ -131,7 +133,7 @@ alwaysApply: true
    - 更新占位符（如果需要）
 
 3. **更新整合日志**
-   - 记录到 `project-init/extract/integration/integration-log.md`
+   - 记录到 `rules_template/extract/integration/integration-log.md`
    - 包含：日期、来源项目、规则文件、规则内容、优先级
 
 **整合日志格式：**
@@ -150,7 +152,7 @@ alwaysApply: true
 ## 📁 目录结构
 
 ```
-project-init/
+rules_template/
 ├── extract/                    # 规则提取工作目录
 │   ├── projects/              # 目标项目目录（软链接）
 │   │   └── [project-name]/    # 具体项目
@@ -212,14 +214,14 @@ project-init/
 
 ### 用户请求
 ```
-请分析项目 project-init/extract/projects/flutter-camera-app，提取规则
+请分析项目 rules_template/extract/projects/flutter-camera-app，提取规则
 ```
 
 ### AI执行流程
 
 1. **检查项目**
    ```bash
-   ls project-init/extract/projects/flutter-camera-app
+   ls rules_template/extract/projects/flutter-camera-app
    ```
 
 2. **分析项目**
@@ -229,12 +231,12 @@ project-init/
    - 识别优秀实践
 
 3. **生成报告**
-   - 保存到 `project-init/extract/analysis/flutter-camera-app-analysis.md`
+   - 保存到 `rules_template/extract/analysis/flutter-camera-app-analysis.md`
 
 4. **提取规则**
    - 识别值得推广的实践
    - 生成规则草案
-   - 保存到 `project-init/extract/rules/`
+   - 保存到 `rules_template/extract/rules/`
 
 5. **整合规则**
    - 审查规则

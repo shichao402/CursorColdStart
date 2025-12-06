@@ -1,0 +1,80 @@
+---
+alwaysApply: true
+---
+# Flutter框架特定规则
+
+## Widget构建
+
+### 禁止行为
+
+- ❌ 禁止在build方法中使用 `print()` 进行调试
+- ❌ 禁止在build方法中执行耗时操作
+- ❌ 禁止在build方法中创建新的对象（除非必要）
+
+### 必须遵守
+
+- ✅ 使用统一日志服务记录Widget生命周期事件
+- ✅ 使用 `const` 构造函数优化性能
+- ✅ 合理使用 `StatefulWidget` 和 `StatelessWidget`
+
+## 状态管理
+
+### 推荐模式
+
+- ✅ 使用 `setState` 管理局部状态
+- ✅ 使用状态管理库（如Provider、Riverpod、Bloc）管理全局状态
+- ✅ 避免过度使用全局状态
+
+## 性能优化
+
+### 构建优化
+
+```dart
+// ✅ 好的做法：使用const
+const Text('Hello')
+
+// ❌ 不好的做法：每次都创建新对象
+Text('Hello')
+```
+
+### 列表优化
+
+```dart
+// ✅ 好的做法：使用ListView.builder
+ListView.builder(
+  itemCount: items.length,
+  itemBuilder: (context, index) => ItemWidget(items[index]),
+)
+
+// ❌ 不好的做法：使用ListView直接构建所有item
+ListView(children: items.map((item) => ItemWidget(item)).toList())
+```
+
+## 平台特定代码
+
+### 平台检测
+
+```dart
+import 'dart:io' show Platform;
+
+if (Platform.isAndroid) {
+  // Android特定代码
+} else if (Platform.isIOS) {
+  // iOS特定代码
+}
+```
+
+## 热重载
+
+- ✅ 利用热重载快速开发
+- ✅ 注意热重载的限制（如全局变量、静态变量等）
+- ✅ 必要时使用热重启
+
+## 调试工具
+
+### Flutter Inspector
+
+- ✅ 使用Flutter Inspector检查Widget树
+- ✅ 使用Performance Overlay检查性能问题
+- ✅ 使用Flutter DevTools进行深度调试
+
