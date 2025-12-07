@@ -65,9 +65,8 @@ func (e *Executor) firstInit(targetDir string) error {
 	// 创建目录结构
 	configDir := filepath.Join(targetDir, ".cursor-cold-start", "config")
 	modulesDir := filepath.Join(targetDir, ".cursor-cold-start", "modules")
-	rulesDir := filepath.Join(targetDir, ".cursor", "rules")
 
-	for _, dir := range []string{configDir, modulesDir, rulesDir} {
+	for _, dir := range []string{configDir, modulesDir} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("无法创建目录 %s: %w", dir, err)
 		}
@@ -80,6 +79,7 @@ func (e *Executor) firstInit(targetDir string) error {
 			"name":        "",
 			"description": "",
 			"version":     "1.0.0",
+			"ides":        []string{"cursor"},
 		},
 		"technology.json": map[string]interface{}{
 			"$schema":   "技术栈配置 - 运行 coldstart list 查看可用选项",
@@ -160,6 +160,8 @@ func (e *Executor) firstInit(targetDir string) error {
 - name: 项目名称（必填）
 - description: 项目描述
 - version: 项目版本
+- ides: 目标 AI IDE 列表（可选，默认 ["cursor"]）
+  - 支持: cursor, codebuddy, windsurf, trae
 
 ### technology.json
 - language: 编程语言（必填）- dart/typescript/python/kotlin/swift
@@ -186,9 +188,10 @@ func (e *Executor) firstInit(targetDir string) error {
 	fmt.Println("  ✅ 已创建 .cursor-cold-start/README.md")
 	fmt.Println()
 
-	// 复制通用规则
+	// 复制通用规则（默认只注入 cursor）
 	fmt.Println("📋 注入通用规则...")
-	if err := e.copyCommonRules(targetDir); err != nil {
+	defaultIDEs := []string{"cursor"}
+	if err := e.copyCommonRules(targetDir, defaultIDEs); err != nil {
 		return err
 	}
 
@@ -245,9 +248,16 @@ func (e *Executor) updateInit(targetDir string) error {
 	// 合并配置
 	config := e.mergeConfigs(projectConfig, techConfig, packsConfig)
 
+	// 获取 IDE 列表
+	ides := getSliceValue(projectConfig, "ides")
+	if len(ides) == 0 {
+		ides = []string{"cursor"} // 默认只生成 cursor
+	}
+
 	// 生成规则
 	fmt.Println("📋 生成规则文件...")
-	if err := e.generateRules(targetDir, config); err != nil {
+	fmt.Printf("  目标 IDE: %v\n", ides)
+	if err := e.generateRules(targetDir, config, ides); err != nil {
 		return err
 	}
 
@@ -338,9 +348,7 @@ func (e *Executor) mergeConfigs(project, tech, packs map[string]interface{}) map
 }
 
 // copyCommonRules 复制核心规则
-func (e *Executor) copyCommonRules(targetDir string) error {
-	rulesDir := filepath.Join(targetDir, ".cursor", "rules")
-	coreDir := filepath.Join(e.templateDir, "templates", "core")
+func (e *Executor) copyCommonRules(targetDir string, ides []string) error {
 	processor := template.NewProcessor()
 
 	// 使用最小化的占位符值
@@ -354,8 +362,18 @@ func (e *Executor) copyCommonRules(targetDir string) error {
 		"LOGGER_SERVICE_CLASS":   "LogService",
 	}
 
-	// 复制 core/ 目录下的所有规则
-	if utils.DirExists(coreDir) {
+	coreDir := filepath.Join(e.templateDir, "templates", "core")
+	if !utils.DirExists(coreDir) {
+		return nil
+	}
+
+	// 为每个 IDE 生成规则
+	for _, ide := range ides {
+		rulesDir := filepath.Join(targetDir, getIDERulesDir(ide))
+		if err := os.MkdirAll(rulesDir, 0755); err != nil {
+			return fmt.Errorf("无法创建目录 %s: %w", rulesDir, err)
+		}
+
 		entries, _ := os.ReadDir(coreDir)
 		for _, entry := range entries {
 			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".template") {
@@ -367,7 +385,7 @@ func (e *Executor) copyCommonRules(targetDir string) error {
 					fmt.Printf("  ⚠️  %s (跳过: %v)\n", baseName, err)
 					continue
 				}
-				fmt.Printf("  ✅ .cursor/rules/%s\n", baseName)
+				fmt.Printf("  ✅ %s/rules/%s\n", getIDEDirName(ide), baseName)
 			}
 		}
 	}
@@ -375,11 +393,49 @@ func (e *Executor) copyCommonRules(targetDir string) error {
 	return nil
 }
 
+// getIDERulesDir 获取 IDE 规则目录路径
+func getIDERulesDir(ide string) string {
+	switch ide {
+	case "cursor":
+		return ".cursor/rules"
+	case "codebuddy":
+		return ".codebuddy/rules"
+	case "windsurf":
+		return ".windsurf/rules"
+	case "trae":
+		return ".trae/rules"
+	default:
+		return fmt.Sprintf(".%s/rules", ide)
+	}
+}
+
+// getIDEDirName 获取 IDE 目录名称（用于显示）
+func getIDEDirName(ide string) string {
+	switch ide {
+	case "cursor":
+		return ".cursor"
+	case "codebuddy":
+		return ".codebuddy"
+	case "windsurf":
+		return ".windsurf"
+	case "trae":
+		return ".trae"
+	default:
+		return fmt.Sprintf(".%s", ide)
+	}
+}
+
 // generateRules 根据配置生成规则
-func (e *Executor) generateRules(targetDir string, config map[string]interface{}) error {
-	rulesDir := filepath.Join(targetDir, ".cursor", "rules")
+func (e *Executor) generateRules(targetDir string, config map[string]interface{}, ides []string) error {
 	processor := template.NewProcessor()
 	values := e.init.GetPlaceholderValues(config)
+
+	// 收集所有要生成的规则文件
+	type ruleFile struct {
+		templatePath string
+		outputName   string
+	}
+	var rules []ruleFile
 
 	// 1. 核心规则
 	coreDir := filepath.Join(e.templateDir, "templates", "core")
@@ -387,15 +443,11 @@ func (e *Executor) generateRules(targetDir string, config map[string]interface{}
 		entries, _ := os.ReadDir(coreDir)
 		for _, entry := range entries {
 			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".template") {
-				templateFile := filepath.Join(coreDir, entry.Name())
 				baseName := strings.TrimSuffix(entry.Name(), ".template")
-				outputFile := filepath.Join(rulesDir, baseName)
-
-				if err := processor.RenderTemplateToFile(templateFile, outputFile, values); err != nil {
-					fmt.Printf("  ⚠️  %s (跳过: %v)\n", baseName, err)
-					continue
-				}
-				fmt.Printf("  ✅ %s\n", baseName)
+				rules = append(rules, ruleFile{
+					templatePath: filepath.Join(coreDir, entry.Name()),
+					outputName:   baseName,
+				})
 			}
 		}
 	}
@@ -406,10 +458,10 @@ func (e *Executor) generateRules(targetDir string, config map[string]interface{}
 		langDir := filepath.Join(e.templateDir, "templates", "tech", "languages")
 		langTemplate := filepath.Join(langDir, fmt.Sprintf("10-%s.mdc.template", lang))
 		if utils.FileExists(langTemplate) {
-			outputFile := filepath.Join(rulesDir, fmt.Sprintf("10-%s.mdc", lang))
-			if err := processor.RenderTemplateToFile(langTemplate, outputFile, values); err == nil {
-				fmt.Printf("  ✅ 10-%s.mdc\n", lang)
-			}
+			rules = append(rules, ruleFile{
+				templatePath: langTemplate,
+				outputName:   fmt.Sprintf("10-%s.mdc", lang),
+			})
 		}
 	}
 
@@ -419,10 +471,10 @@ func (e *Executor) generateRules(targetDir string, config map[string]interface{}
 		fwDir := filepath.Join(e.templateDir, "templates", "tech", "frameworks")
 		fwTemplate := filepath.Join(fwDir, fmt.Sprintf("20-%s.mdc.template", framework))
 		if utils.FileExists(fwTemplate) {
-			outputFile := filepath.Join(rulesDir, fmt.Sprintf("20-%s.mdc", framework))
-			if err := processor.RenderTemplateToFile(fwTemplate, outputFile, values); err == nil {
-				fmt.Printf("  ✅ 20-%s.mdc\n", framework)
-			}
+			rules = append(rules, ruleFile{
+				templatePath: fwTemplate,
+				outputName:   fmt.Sprintf("20-%s.mdc", framework),
+			})
 		}
 	}
 
@@ -433,115 +485,138 @@ func (e *Executor) generateRules(targetDir string, config map[string]interface{}
 		platformDir := filepath.Join(e.templateDir, "templates", "tech", "platforms")
 		platformTemplate := filepath.Join(platformDir, fmt.Sprintf("30-%s.mdc.template", platform))
 		if utils.FileExists(platformTemplate) {
-			outputFile := filepath.Join(rulesDir, fmt.Sprintf("%d-%s.mdc", platformPriority, platform))
-			if err := processor.RenderTemplateToFile(platformTemplate, outputFile, values); err == nil {
-				fmt.Printf("  ✅ %d-%s.mdc\n", platformPriority, platform)
-			}
+			rules = append(rules, ruleFile{
+				templatePath: platformTemplate,
+				outputName:   fmt.Sprintf("%d-%s.mdc", platformPriority, platform),
+			})
 			platformPriority++
 		}
 	}
 
-	// 5. 功能包规则
-	packs, _ := config["packs"].(map[string]interface{})
-	if packs != nil {
-		packsDir := filepath.Join(e.templateDir, "templates", "packs")
-		
-		// 遍历所有功能包
-		packEntries, _ := os.ReadDir(packsDir)
-		for _, packEntry := range packEntries {
-			if !packEntry.IsDir() {
+	// 为每个 IDE 生成规则
+	for _, ide := range ides {
+		rulesDir := filepath.Join(targetDir, getIDERulesDir(ide))
+		if err := os.MkdirAll(rulesDir, 0755); err != nil {
+			return fmt.Errorf("无法创建目录 %s: %w", rulesDir, err)
+		}
+
+		// 生成基础规则
+		for _, rule := range rules {
+			outputFile := filepath.Join(rulesDir, rule.outputName)
+			if err := processor.RenderTemplateToFile(rule.templatePath, outputFile, values); err != nil {
+				fmt.Printf("  ⚠️  %s (跳过: %v)\n", rule.outputName, err)
 				continue
 			}
-			
-			packID := packEntry.Name()
-			packConfig, ok := packs[packID].(map[string]interface{})
-			if !ok {
-				continue
-			}
-			
-			// 检查是否启用
-			if !getBoolValue(packConfig, "enabled") {
-				continue
-			}
-			
-			// 读取 pack.config.json 获取优先级和依赖
-			packConfigFile := filepath.Join(packsDir, packID, "pack.config.json")
-			packMeta, err := readJSONFile(packConfigFile)
-			if err != nil {
-				continue
-			}
-			
-			// 检查依赖
-			dependencies := getStringSliceFromInterface(packMeta["dependencies"])
-			missingDeps := []string{}
-			for _, dep := range dependencies {
-				depConfig, ok := packs[dep].(map[string]interface{})
-				if !ok || !getBoolValue(depConfig, "enabled") {
-					missingDeps = append(missingDeps, dep)
-				}
-			}
-			if len(missingDeps) > 0 {
-				fmt.Printf("  ⚠️  %s (跳过: 缺少依赖 %v)\n", packID, missingDeps)
-				continue
-			}
-			
-			priority := int(getFloatValue(packMeta, "priority"))
-			if priority == 0 {
-				priority = 40 // 默认优先级
-			}
-			
-			// 合并 pack 特定配置到 values
-			packValues := make(map[string]interface{})
-			for k, v := range values {
-				packValues[k] = v
-			}
-			
-			// 添加 pack 配置（使用智能字段映射）
-			if packCfg, ok := packConfig["config"].(map[string]interface{}); ok {
-				for k, v := range packCfg {
-					// 字段名映射表
-					fieldMapping := map[string]string{
-						"serviceClass": "LOGGER_SERVICE_CLASS",
-						"filePath":     "LOG_FILE_PATH",
-						"sourceFile":   "VERSION_SOURCE_FILE",
-						"packageName":  "PACKAGE_NAME",
-						"moduleName":   "MODULE_NAME",
-						"modulePath":   "MODULE_PATH",
-					}
-					
-					if mappedKey, ok := fieldMapping[k]; ok {
-						packValues[mappedKey] = v
-					} else {
-						// 默认转换为大写下划线格式
-						packValues[toUpperSnakeCase(k)] = v
-					}
-				}
-			}
-			
-			// 生成规则文件
-			rulesPath := filepath.Join(packsDir, packID, "rules")
-			if utils.DirExists(rulesPath) {
-				ruleEntries, _ := os.ReadDir(rulesPath)
-				for _, ruleEntry := range ruleEntries {
-					if ruleEntry.IsDir() || !strings.HasSuffix(ruleEntry.Name(), ".template") {
-						continue
-					}
-					
-					templateFile := filepath.Join(rulesPath, ruleEntry.Name())
-					baseName := strings.TrimSuffix(ruleEntry.Name(), ".template")
-					outputFile := filepath.Join(rulesDir, fmt.Sprintf("%d-%s", priority, baseName))
-					
-					if err := processor.RenderTemplateToFile(templateFile, outputFile, packValues); err != nil {
-						fmt.Printf("  ⚠️  %d-%s (跳过: %v)\n", priority, baseName, err)
-						continue
-					}
-					fmt.Printf("  ✅ %d-%s\n", priority, baseName)
-				}
-			}
+			fmt.Printf("  ✅ %s\n", rule.outputName)
+		}
+
+		// 5. 功能包规则
+		packs, _ := config["packs"].(map[string]interface{})
+		if packs != nil {
+			e.generatePackRules(rulesDir, packs, values, processor)
 		}
 	}
 
 	return nil
+}
+
+// generatePackRules 生成功能包规则
+func (e *Executor) generatePackRules(rulesDir string, packs map[string]interface{}, values map[string]interface{}, processor *template.Processor) {
+	packsDir := filepath.Join(e.templateDir, "templates", "packs")
+	
+	// 遍历所有功能包
+	packEntries, _ := os.ReadDir(packsDir)
+	for _, packEntry := range packEntries {
+		if !packEntry.IsDir() {
+			continue
+		}
+		
+		packID := packEntry.Name()
+		packConfig, ok := packs[packID].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		
+		// 检查是否启用
+		if !getBoolValue(packConfig, "enabled") {
+			continue
+		}
+		
+		// 读取 pack.config.json 获取优先级和依赖
+		packConfigFile := filepath.Join(packsDir, packID, "pack.config.json")
+		packMeta, err := readJSONFile(packConfigFile)
+		if err != nil {
+			continue
+		}
+		
+		// 检查依赖
+		dependencies := getStringSliceFromInterface(packMeta["dependencies"])
+		missingDeps := []string{}
+		for _, dep := range dependencies {
+			depConfig, ok := packs[dep].(map[string]interface{})
+			if !ok || !getBoolValue(depConfig, "enabled") {
+				missingDeps = append(missingDeps, dep)
+			}
+		}
+		if len(missingDeps) > 0 {
+			fmt.Printf("  ⚠️  %s (跳过: 缺少依赖 %v)\n", packID, missingDeps)
+			continue
+		}
+		
+		priority := int(getFloatValue(packMeta, "priority"))
+		if priority == 0 {
+			priority = 40 // 默认优先级
+		}
+		
+		// 合并 pack 特定配置到 values
+		packValues := make(map[string]interface{})
+		for k, v := range values {
+			packValues[k] = v
+		}
+		
+		// 添加 pack 配置（使用智能字段映射）
+		if packCfg, ok := packConfig["config"].(map[string]interface{}); ok {
+			for k, v := range packCfg {
+				// 字段名映射表
+				fieldMapping := map[string]string{
+					"serviceClass": "LOGGER_SERVICE_CLASS",
+					"filePath":     "LOG_FILE_PATH",
+					"sourceFile":   "VERSION_SOURCE_FILE",
+					"packageName":  "PACKAGE_NAME",
+					"moduleName":   "MODULE_NAME",
+					"modulePath":   "MODULE_PATH",
+				}
+				
+				if mappedKey, ok := fieldMapping[k]; ok {
+					packValues[mappedKey] = v
+				} else {
+					// 默认转换为大写下划线格式
+					packValues[toUpperSnakeCase(k)] = v
+				}
+			}
+		}
+		
+		// 生成规则文件
+		rulesPath := filepath.Join(packsDir, packID, "rules")
+		if utils.DirExists(rulesPath) {
+			ruleEntries, _ := os.ReadDir(rulesPath)
+			for _, ruleEntry := range ruleEntries {
+				if ruleEntry.IsDir() || !strings.HasSuffix(ruleEntry.Name(), ".template") {
+					continue
+				}
+				
+				templateFile := filepath.Join(rulesPath, ruleEntry.Name())
+				baseName := strings.TrimSuffix(ruleEntry.Name(), ".template")
+				outputFile := filepath.Join(rulesDir, fmt.Sprintf("%d-%s", priority, baseName))
+				
+				if err := processor.RenderTemplateToFile(templateFile, outputFile, packValues); err != nil {
+					fmt.Printf("  ⚠️  %d-%s (跳过: %v)\n", priority, baseName, err)
+					continue
+				}
+				fmt.Printf("  ✅ %d-%s\n", priority, baseName)
+			}
+		}
+	}
 }
 
 // List 列出可用选项
@@ -566,6 +641,8 @@ func (e *Executor) List(listType string) error {
 		e.listPlatforms(options)
 	case "packs", "pack":
 		e.listPacks()
+	case "ides", "ide":
+		e.listIDEs()
 	default:
 		// 列出所有
 		fmt.Println("可用选项：")
@@ -573,6 +650,8 @@ func (e *Executor) List(listType string) error {
 		e.listLanguages(options)
 		fmt.Println()
 		e.listPlatforms(options)
+		fmt.Println()
+		e.listIDEs()
 		fmt.Println()
 		e.listPacks()
 		fmt.Println()
@@ -632,6 +711,23 @@ func (e *Executor) listPlatforms(options map[string]interface{}) {
 		id := getStringValue(platMap, "id")
 		name := getStringValue(platMap, "name")
 		fmt.Printf("  - %s (%s)\n", id, name)
+	}
+}
+
+func (e *Executor) listIDEs() {
+	fmt.Println("🤖 支持的 AI IDE：")
+	ides := []struct {
+		id   string
+		name string
+		dir  string
+	}{
+		{"cursor", "Cursor", ".cursor/rules"},
+		{"codebuddy", "CodeBuddy", ".codebuddy/rules"},
+		{"windsurf", "Windsurf", ".windsurf/rules"},
+		{"trae", "Trae", ".trae/rules"},
+	}
+	for _, ide := range ides {
+		fmt.Printf("  - %s (%s) -> %s\n", ide.id, ide.name, ide.dir)
 	}
 }
 
