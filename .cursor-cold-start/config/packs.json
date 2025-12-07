@@ -16,7 +16,10 @@
     "enabled": true
   },
   "cursortoolset": {
-    "enabled": false
+    "enabled": true,
+    "config": {
+      "packageName": "cursor-cold-start"
+    }
   },
   "update-module": {
     "enabled": false
