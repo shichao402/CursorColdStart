@@ -23,5 +23,8 @@
   },
   "update-module": {
     "enabled": false
+  },
+  "github-issue": {
+    "enabled": true
   }
 }

@@ -19,7 +19,7 @@ cursortoolset install github-issue
 
 | 变量 | 说明 |
 |------|------|
-| `GITHUB_TOKEN` | GitHub Personal Access Token |
+| `<no value>` | GitHub Personal Access Token |
 
 ### Token 权限要求
 
