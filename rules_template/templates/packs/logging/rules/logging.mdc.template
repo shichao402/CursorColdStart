@@ -1,76 +1,95 @@
 ---
 alwaysApply: true
 ---
-# 日志规则 - 最高优先级
+# 日志规则
 
 ## 核心约束（强制）
 
-1. **严格禁止使用 `print()` 语句**，必须使用项目统一的日志服务
-2. 所有日志必须写入独立的日志文件，不依赖系统日志
+1. **严格禁止使用原生打印语句**，必须使用项目统一的日志服务
+2. 所有日志必须写入独立的日志文件
 3. 错误日志必须包含堆栈跟踪
-4. AI必须主动收集日志，不要求用户手动操作
+4. AI 必须主动收集日志，不要求用户手动操作
 
-## 日志服务使用
+## 日志服务
 
-### {{ MODULE_NAME }}模块
+### 统一日志接口
 
-[{{ MODULE_PATH }}]
-使用 `{{ LOGGER_SERVICE_CLASS }}` 单例
+```
+LogService:
+  - log(message, tag)                    // 普通日志
+  - logError(message, error, stackTrace) // 错误日志
+  - logWarning(message, tag)             // 警告日志（可选）
+```
 
-**API：**
-- 普通日志：`logger.log('消息', tag: 'TAG')`
-- 错误日志：`logger.logError('错误', error: e, stackTrace: stackTrace)`
-{% if ADDITIONAL_API_METHODS %}{{ ADDITIONAL_API_METHODS }}
-{% endif %}
+### 使用示例（伪代码）
+
+```
+// ✅ 正确：使用统一日志服务
+logger = LogService.getInstance()
+logger.log("操作开始", tag: "OPERATION")
+logger.logError("操作失败", error: e, stackTrace: trace)
+
+// ❌ 错误：使用原生打印
+print("调试信息")
+console.log("调试信息")
+```
 
 **日志文件路径：** `{{ LOG_FILE_PATH }}`
 
 ## 禁止行为
 
-- ❌ 禁止使用 `print()` 语句（具体禁止的语句请参考对应语言的规则文件）
-- ❌ 禁止使用任何其他日志输出方式（如 `debugPrint()`、`console.log()` 等，具体请参考对应语言的规则文件）
-- ❌ 禁止手动使用系统命令收集日志
-- ❌ 禁止手动访问日志文件路径
-- ❌ 禁止手动执行任何日志收集命令
-- ❌ **严格禁止使用tail命令查看日志**（会错过重要信息）
+- ❌ 使用原生打印语句（`print`、`console.log`、`fmt.Println` 等）
+- ❌ 使用其他非统一的日志输出方式
+- ❌ 手动使用系统命令收集日志
+- ❌ 手动访问日志文件路径
+- ❌ 使用 `tail` 命令查看日志（会错过重要信息）
 
 ## 必须遵守
 
-- ✅ 必须使用统一的日志服务
-- ✅ 所有日志必须包含有意义的 tag
-- ✅ 错误日志必须包含堆栈跟踪
-- ✅ 必须使用 `{{ LOG_COLLECT_SCRIPT_PATH }}` 脚本收集日志
-- ✅ AI必须主动执行日志收集脚本，不要求用户操作
+- ✅ 使用统一的日志服务
+- ✅ 所有日志包含有意义的 tag
+- ✅ 错误日志包含堆栈跟踪
+- ✅ 使用日志收集脚本收集日志
+- ✅ AI 主动执行日志收集，不要求用户操作
 
 ## 错误日志标准
 
-所有错误处理必须包含堆栈跟踪信息。具体语法请参考对应语言的规则文件。
+所有错误处理必须包含：
+- 错误消息
+- 原始错误对象
+- 堆栈跟踪信息
+- 相关上下文标签
 
 ## 关键操作日志
 
-所有关键操作必须记录：
-- **操作开始：** `logger.log('开始操作', tag: 'OPERATION')`
-- **操作成功：** `logger.log('操作成功', tag: 'OPERATION')`
-- **操作失败：** `logger.logError('操作失败', error: e, stackTrace: stackTrace, tag: 'OPERATION')`
+```
+// 操作开始
+logger.log("开始操作", tag: "OPERATION")
+
+// 操作成功
+logger.log("操作成功", tag: "OPERATION")
+
+// 操作失败
+logger.logError("操作失败", error: e, stackTrace: trace, tag: "OPERATION")
+```
 
 ## 日志查阅优先级
 
-1. 应用独立日志文件（第一优先级）
-2. {{ FRAMEWORK }} print输出
+1. **应用独立日志文件**（第一优先级）
+2. 应用标准输出
 3. 系统日志（最后手段）
 
-## 日志收集脚本
+## 日志收集
 
-**路径：** `{{ LOG_COLLECT_SCRIPT_PATH }}`
+**脚本路径：** `{{ LOG_COLLECT_SCRIPT_PATH }}`
 
 **使用方式：**
 ```bash
 {{ LOG_COLLECT_COMMAND }}
 ```
 
-**何时使用：**
+**使用时机：**
 - 调试任何问题时
 - 测试完成后
 - 出现错误时
 - 需要查看日志时
-

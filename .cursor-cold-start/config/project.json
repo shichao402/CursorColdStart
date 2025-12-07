@@ -1,0 +1,6 @@
+{
+  "$schema": "项目基本信息配置",
+  "name": "CursorColdStart",
+  "description": "项目AI冷启动初始化系统 - 使用 Go 实现的跨平台脚手架工具，帮助新项目快速启动并配置 Cursor AI 规则",
+  "version": "2.1.1"
+}

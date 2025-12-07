@@ -36,15 +36,15 @@ alwaysApply: true
 版本号统一存储在 `VERSION.yaml` 文件中：
 
 ```yaml
-{{ COMPONENT_NAME }}:
+cursorcoldstart:
   version: "1.0.7+13"
 
 compatibility:
-  min_{{ COMPONENT_NAME }}_version: "1.0.6"
+  min_cursorcoldstart_version: "1.0.6"
 
 update:
   github:
-    url: https://github.com/{{ REPO_OWNER }}/{{ REPO_NAME }}/releases/download/UpdateConfig/update_config.json
+    url: https://github.com/owner/cursorcoldstart/releases/download/UpdateConfig/update_config.json
 ```
 
 ### 多组件项目
