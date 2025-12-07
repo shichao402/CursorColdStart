@@ -1,0 +1,20 @@
+{
+  "id": "update-module",
+  "name": "应用更新模块",
+  "description": "应用自更新功能模块，包括版本检查、下载、安装逻辑",
+  "category": "feature",
+  "priority": 51,
+  "dependencies": ["version-management"],
+  "config": {
+    "moduleName": {
+      "type": "string",
+      "required": true,
+      "description": "模块名称"
+    },
+    "modulePath": {
+      "type": "string",
+      "required": true,
+      "description": "模块路径"
+    }
+  }
+}

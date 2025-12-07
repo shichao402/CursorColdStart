@@ -1,0 +1,15 @@
+{
+  "id": "cursortoolset",
+  "name": "CursorToolset 包管理",
+  "description": "CursorToolset 包开发规范，包括包清单格式、目录结构、发布流程",
+  "category": "toolchain",
+  "priority": 50,
+  "dependencies": [],
+  "config": {
+    "packageName": {
+      "type": "string",
+      "required": true,
+      "description": "包名称"
+    }
+  }
+}

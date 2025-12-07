@@ -1,0 +1,15 @@
+{
+  "id": "version-management",
+  "name": "版本管理",
+  "description": "版本号管理规范，包括VERSION.yaml单一数据源、版本服务类、自动同步机制",
+  "category": "feature",
+  "priority": 44,
+  "dependencies": [],
+  "config": {
+    "sourceFile": {
+      "type": "string",
+      "default": "VERSION.yaml",
+      "description": "版本号源文件"
+    }
+  }
+}

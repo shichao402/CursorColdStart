@@ -125,11 +125,48 @@
     }
   ],
   "rulePriorities": {
-    "common": 0,
+    "core": 0,
     "languages": 10,
     "frameworks": 20,
-    "platforms": 30
-  }
+    "platforms": 30,
+    "packs": 40
+  },
+  "packs": [
+    {
+      "id": "logging",
+      "name": "日志系统",
+      "category": "feature",
+      "defaultEnabled": true
+    },
+    {
+      "id": "version-management",
+      "name": "版本管理",
+      "category": "feature",
+      "defaultEnabled": false
+    },
+    {
+      "id": "github-actions",
+      "name": "GitHub Actions CI/CD",
+      "category": "toolchain",
+      "defaultEnabled": false
+    },
+    {
+      "id": "documentation",
+      "name": "文档管理",
+      "category": "feature",
+      "defaultEnabled": true
+    },
+    {
+      "id": "cursortoolset",
+      "name": "CursorToolset 包管理",
+      "category": "toolchain",
+      "defaultEnabled": false
+    },
+    {
+      "id": "update-module",
+      "name": "应用更新模块",
+      "category": "feature",
+      "defaultEnabled": false
+    }
+  ]
 }
-
-

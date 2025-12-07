@@ -1,0 +1,9 @@
+{
+  "id": "documentation",
+  "name": "文档管理",
+  "description": "文档管理规范，包括Documents/目录结构、临时文档处理、文档命名规范",
+  "category": "feature",
+  "priority": 46,
+  "dependencies": [],
+  "config": {}
+}

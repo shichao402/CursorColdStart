@@ -1,0 +1,201 @@
+---
+alwaysApply: true
+---
+# 版本管理规则 - 高优先级
+
+## 核心约束（强制）
+
+1. **版本号必须由项目自身管理，不依赖外部平台**
+2. **版本号必须使用单一数据源（VERSION.yaml）**
+3. **构建号必须自动递增**
+4. **版本号必须自动同步到项目配置文件**
+
+## 版本号格式
+
+### 语义化版本号
+
+使用语义化版本号格式：`主版本号.次版本号.修订号+构建号`
+
+**格式：** `x.y.z+build`
+
+**示例：** `1.0.7+13`
+- `1.0.7` - 版本号（主版本.次版本.修订号）
+- `+13` - 构建号
+
+### 版本号组成部分
+
+- **主版本号（Major）** - 不兼容的 API 更改、重大功能变更
+- **次版本号（Minor）** - 向后兼容的功能添加、新功能
+- **修订号（Patch）** - 向后兼容的 bug 修复、小改进
+- **构建号（Build）** - 每次构建递增，用于区分同一版本的多次构建
+
+## 版本号存储
+
+### 单一数据源原则
+
+**版本号统一存储在项目根目录的 `VERSION.yaml` 文件中（YAML格式），作为单一数据源。**
+
+### VERSION.yaml 文件格式
+
+```yaml
+# 版本号配置文件
+# 格式: YAML
+
+{{ COMPONENT_NAME }}:
+  version: "1.0.7+13"  # 版本号（格式: x.y.z+build）
+
+compatibility:
+  # 最小版本要求（格式: x.y.z，不含构建号）
+  min_{{ COMPONENT_NAME }}_version: "1.0.6"
+
+update:
+  github:
+    url: https://github.com/{{ REPO_OWNER }}/{{ REPO_NAME }}/releases/download/UpdateConfig/update_config_github.json
+```
+
+### 多组件项目
+
+如果项目包含多个组件（如客户端和服务器），每个组件使用独立的版本号：
+
+```yaml
+client:
+  version: "1.0.7+13"
+  
+server:
+  version: "1.0.8+5"
+
+compatibility:
+  min_client_version: "1.0.6"
+  min_server_version: "1.0.6"
+```
+
+## 版本号管理工具
+
+### 必须提供的功能
+
+项目必须提供版本号管理脚本（`scripts/version.sh` 或 `scripts/version.py`），支持以下命令：
+
+```bash
+# 显示版本号
+./scripts/version.sh get [component]
+
+# 设置版本号
+./scripts/version.sh set [component] x.y.z+build
+
+# 递增版本号
+./scripts/version.sh bump [component] [major|minor|patch|build]
+
+# 同步版本号到项目配置文件
+./scripts/version.sh sync [component]
+
+# 设置最小版本要求
+./scripts/version.sh set-min-version [component] x.y.z
+```
+
+### 自动同步机制
+
+**构建脚本必须自动同步版本号：**
+
+- 执行构建脚本时，自动从 `VERSION.yaml` 文件同步版本号到项目配置文件
+- 项目配置文件位置根据技术栈确定：
+  - **Flutter/Dart:** `pubspec.yaml`
+  - **Node.js/TypeScript:** `package.json`
+  - **Python:** `setup.py` 或 `pyproject.toml`
+  - **其他语言:** 根据项目结构确定
+
+**无需手动操作：** 只需更新 `VERSION.yaml` 文件，构建时会自动同步。
+
+## 版本兼容性检查
+
+### 工作原理
+
+1. **连接时检查：**
+   - 组件在连接时发送自己的版本号
+   - 接收方检查版本是否满足最小版本要求
+   - 如果版本过低，拒绝连接并发送版本不兼容通知
+
+2. **版本兼容性配置：**
+   - 在 `VERSION.yaml` 文件中配置最小版本要求
+   - 格式：`x.y.z`（不含构建号）
+
+### 版本检查流程
+
+```
+组件A连接
+    ↓
+组件A发送版本号
+    ↓
+组件B检查版本
+    ├─ 版本兼容 → 允许连接
+    └─ 版本不兼容 → 拒绝连接，发送版本不兼容通知
+```
+
+## 在代码中读取版本号
+
+### 实现要求
+
+项目必须提供版本服务类，用于在运行时读取版本号：
+
+```{{ CODE_LANGUAGE }}
+// ✅ 好的做法 - 使用版本服务
+final versionService = VersionService();
+final version = await versionService.getVersion();
+final versionNumber = await versionService.getVersionNumber();
+final buildNumber = await versionService.getBuildNumber();
+```
+
+### 版本服务接口
+
+版本服务必须提供以下方法：
+- `getVersion()` - 获取完整版本号（格式: x.y.z+build）
+- `getVersionNumber()` - 获取版本号部分（不含构建号，格式: x.y.z）
+- `getBuildNumber()` - 获取构建号
+- `checkCompatibility(otherVersion)` - 检查版本兼容性
+
+## 禁止行为
+
+- ❌ 手动编辑项目配置文件中的版本号（应通过 VERSION.yaml 管理）
+- ❌ 在代码中硬编码版本号
+- ❌ 依赖 Git 标签或 CI/CD 平台管理版本号
+- ❌ 不提供版本号管理工具
+- ❌ 构建脚本不自动同步版本号
+
+## 必须遵守
+
+- ✅ 版本号必须存储在 VERSION.yaml 文件中
+- ✅ 必须提供版本号管理脚本
+- ✅ 构建脚本必须自动同步版本号
+- ✅ 代码中必须使用版本服务读取版本号
+- ✅ 必须支持版本兼容性检查
+- ✅ 构建号必须自动递增（在 CI/CD 中）
+
+## 版本号更新建议
+
+### 主版本号（Major）
+- 不兼容的 API 更改
+- 重大功能变更
+- **通常需要更新最小版本要求**
+
+### 次版本号（Minor）
+- 向后兼容的功能添加
+- 新功能
+- **可能需要更新最小版本要求（如果新功能需要其他组件支持）**
+
+### 修订号（Patch）
+- 向后兼容的 bug 修复
+- 小改进
+- **通常不需要更新最小版本要求**
+
+### 构建号（Build）
+- 每次构建递增
+- 用于区分同一版本的多次构建
+- **不影响版本兼容性**
+
+## 版本号一致性
+
+- **单一数据源：** `VERSION.yaml` 文件是版本号的唯一来源
+- **自动同步：** 构建脚本自动同步到对应的项目配置文件
+- **代码读取：** 应用代码通过版本服务从项目配置文件读取
+- **运行时读取：** 服务端应用从打包的版本文件中读取版本兼容性配置
+
+

@@ -38,3 +38,4 @@ Thumbs.db
 # Temporary docs
 docs/temp/*
 !docs/temp/.gitkeep
+testProject/

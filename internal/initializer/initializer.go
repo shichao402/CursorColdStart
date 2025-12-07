@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -91,7 +92,8 @@ func (p *ProjectInitializer) SaveConfig(config map[string]interface{}) error {
 func (p *ProjectInitializer) GetPlaceholderValues(config map[string]interface{}) map[string]interface{} {
 	lang := getString(config, "language", "dart")
 	framework := getString(config, "framework", "flutter")
-	buildTool := getString(config, "buildTool", "Flutter CLI")
+	buildTool := p.getBuildTool(framework)
+	projectName := getString(config, "projectName", "未命名项目")
 
 	platforms := getStringSlice(config, "platforms")
 	targetPlatforms := ""
@@ -105,27 +107,39 @@ func (p *ProjectInitializer) GetPlaceholderValues(config map[string]interface{})
 	}
 
 	values := map[string]interface{}{
-		"PROJECT_NAME":            getString(config, "projectName", "未命名项目"),
+		// 项目基本信息
+		"PROJECT_NAME":            projectName,
+		"PROJECT_DESCRIPTION":     getString(config, "projectDescription", ""),
 		"PROGRAMMING_LANGUAGE":    getString(config, "languageName", "Dart"),
 		"FRAMEWORK":               framework,
 		"BUILD_TOOL":              buildTool,
 		"CODE_LANGUAGE":           getString(config, "codeLanguage", lang),
 		"TARGET_PLATFORMS":        targetPlatforms,
+		"GENERATION_DATE":         time.Now().Format("2006-01-02 15:04:05"),
+		
+		// 模块信息（默认值）
 		"MODULE_NAME":             "应用",
 		"MODULE_PATH":             "**",
-		"GENERATION_DATE":         time.Now().Format("2006-01-02 15:04:05"),
-		"ENABLE_GITHUB_ACTION":    getBool(config, "enableGitHubAction", false),
-		"LOGGER_SERVICE_CLASS":    "Logger",
+		
+		// 日志相关
+		"LOGGER_SERVICE_CLASS":    "LogService",
 		"LOG_FILE_PATH":           "logs/app.log",
 		"LOG_COLLECT_SCRIPT_PATH": "scripts/collect_logs.sh",
 		"LOG_COLLECT_COMMAND":     "./scripts/collect_logs.sh",
+		"ADDITIONAL_API_METHODS":  "",
+		
+		// 版本管理相关
+		"COMPONENT_NAME":          strings.ToLower(strings.ReplaceAll(projectName, " ", "_")),
+		"REPO_OWNER":              "owner",
+		"REPO_NAME":               strings.ToLower(strings.ReplaceAll(projectName, " ", "-")),
+		
+		// GitHub Actions
+		"ENABLE_GITHUB_ACTION":    getBool(config, "enableGitHubAction", false),
 	}
 
 	// 根据语言设置额外的API方法
 	if lang == "typescript" || lang == "javascript" {
 		values["ADDITIONAL_API_METHODS"] = "- 警告日志：`logger.warn('警告', tag: 'TAG')`"
-	} else {
-		values["ADDITIONAL_API_METHODS"] = ""
 	}
 
 	// 根据框架生成部署相关占位符
@@ -135,6 +149,25 @@ func (p *ProjectInitializer) GetPlaceholderValues(config map[string]interface{})
 	}
 
 	return values
+}
+
+// getBuildTool 根据框架获取构建工具
+func (p *ProjectInitializer) getBuildTool(framework string) string {
+	tools := map[string]string{
+		"flutter":  "Flutter CLI",
+		"react":    "npm/yarn",
+		"vue":      "npm/yarn",
+		"nodejs":   "npm/yarn",
+		"django":   "pip",
+		"fastapi":  "pip",
+		"android":  "Gradle",
+		"spring":   "Gradle",
+		"ios":      "Xcode",
+	}
+	if tool, ok := tools[framework]; ok {
+		return tool
+	}
+	return "CLI"
 }
 
 // getDeployTemplates 根据框架获取部署模板

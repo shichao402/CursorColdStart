@@ -1,0 +1,272 @@
+---
+alwaysApply: true
+---
+# CursorToolset 包管理规则
+
+## 概述
+
+本项目使用 **CursorToolset** 进行工具集管理和分发。CursorToolset 是一个专为 Cursor AI 助手工具集设计的包管理器，遵循简单、安全、透明的设计理念。
+
+## 核心约束（强制）
+
+1. **必须使用 `package.json`（或 `toolset.json`）作为包清单文件**
+2. **发布包必须包含 SHA256 校验和**
+3. **可执行文件必须在 `bin` 字段中声明**
+4. **遵循语义化版本规范**
+
+## 包清单文件格式
+
+### package.json / toolset.json 必需字段
+
+```json
+{
+  "name": "{{ PACKAGE_NAME }}",
+  "displayName": "{{ PACKAGE_DISPLAY_NAME }}",
+  "version": "1.0.0",
+  "description": "{{ PACKAGE_DESCRIPTION }}",
+  "author": "{{ PROJECT_AUTHOR }}",
+  "license": "MIT",
+  "keywords": ["cursor", "ai", "toolset"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/username/{{ PACKAGE_NAME }}.git"
+  },
+  "bin": {
+    "command-name": "./bin/executable"
+  },
+  "dist": {
+    "tarball": "{{ PACKAGE_NAME }}-1.0.0.tar.gz",
+    "sha256": "TODO: 发布时自动填写"
+  },
+  "cursortoolset": {
+    "minVersion": "1.0.0"
+  }
+}
+```
+
+### 字段说明
+
+| 字段 | 必需 | 说明 |
+|------|------|------|
+| `name` | ✅ | 包的唯一标识符，用于命令行操作 |
+| `version` | ✅ | 语义化版本号 |
+| `description` | ✅ | 包的简要描述 |
+| `dist.tarball` | ✅ | 发布包文件名或下载链接 |
+| `dist.sha256` | ✅ | 发布包的 SHA256 校验和 |
+| `bin` | ⚪ | 可执行文件映射 |
+| `cursortoolset.minVersion` | ⚪ | 最低管理器版本要求 |
+
+## 目录结构规范
+
+```
+{{ PROJECT_NAME }}/
+├── package.json          # 包清单文件（必需）
+├── README.md             # 说明文档
+├── bin/                  # 可执行文件目录
+│   └── {{ PACKAGE_NAME }}*
+├── rules_template/       # 规则模板（如适用）
+├── scripts/              # 脚本文件
+└── .cursortoolset/       # CursorToolset 本地配置
+    ├── rules/            # 同步的规则文件
+    └── docs/             # 同步的文档
+```
+
+## 常用命令
+
+### 包管理
+
+```bash
+# 更新包索引
+cursortoolset registry update
+
+# 搜索包
+cursortoolset search <关键词>
+
+# 安装包
+cursortoolset install <包名>
+
+# 查看包信息
+cursortoolset info <包名>
+
+# 卸载包
+cursortoolset uninstall <包名>
+
+# 更新所有已安装的包
+cursortoolset update
+
+# 更新管理器自身
+cursortoolset update --self
+```
+
+### 包开发
+
+```bash
+# 初始化新包项目
+cursortoolset init <包名>
+
+# 打包（生成 .tar.gz 并计算 SHA256）
+cursortoolset pack
+
+# 验证打包
+cursortoolset pack --verify
+```
+
+## 发布流程
+
+### 1. 准备发布
+
+确保 `package.json` 包含所有必需字段：
+
+```bash
+# 验证包配置
+cat package.json | jq '.name, .version, .description'
+```
+
+### 2. 构建和打包
+
+```bash
+# 构建项目（如有）
+make build
+
+# 使用 CursorToolset 打包
+cursortoolset pack
+```
+
+### 3. 创建 GitHub Release
+
+1. 提交代码并推送
+2. 创建版本标签：`git tag v1.0.0 && git push origin v1.0.0`
+3. GitHub Actions 自动构建并创建 Release
+
+### 4. 更新 dist 信息
+
+发布后更新 `package.json` 中的 `dist` 字段：
+
+```json
+{
+  "dist": {
+    "tarball": "https://github.com/username/{{ PACKAGE_NAME }}/releases/download/v1.0.0/{{ PACKAGE_NAME }}-1.0.0.tar.gz",
+    "sha256": "实际的SHA256值"
+  }
+}
+```
+
+## GitHub Actions 集成
+
+### 自动发布工作流
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      # 构建步骤（根据项目类型调整）
+      - name: Build
+        run: make build
+      
+      # 打包
+      - name: Create tarball
+        run: |
+          PACKAGE_NAME=$(jq -r '.name' package.json)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          mkdir -p /tmp/release
+          tar -czvf /tmp/release/${PACKAGE_NAME}-${VERSION}.tar.gz \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='*.go' \
+            --exclude='go.mod' \
+            --exclude='go.sum' \
+            bin/ rules_template/ README.md package.json
+      
+      # 计算 SHA256
+      - name: Generate release package.json
+        run: |
+          PACKAGE_NAME=$(jq -r '.name' package.json)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          TARBALL="${PACKAGE_NAME}-${VERSION}.tar.gz"
+          SHA256=$(sha256sum /tmp/release/$TARBALL | cut -d' ' -f1)
+          
+          jq --arg sha256 "$SHA256" --arg version "$VERSION" \
+             '.version = $version | .dist.sha256 = $sha256' \
+             package.json > /tmp/release/package.json
+      
+      # 创建 Release
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            /tmp/release/package.json
+            /tmp/release/*.tar.gz
+          generate_release_notes: true
+```
+
+## 安全规范
+
+### SHA256 校验
+
+- ✅ 发布前必须计算并记录 SHA256
+- ✅ 安装时自动验证校验和
+- ❌ 禁止跳过校验和验证
+
+### 可执行文件
+
+- ✅ 所有可执行文件必须在 `bin` 字段声明
+- ✅ 可执行文件路径使用相对路径
+- ❌ 禁止在包中包含未声明的可执行脚本
+
+## 禁止行为
+
+- ❌ 不在 `package.json` 中声明版本
+- ❌ 发布时不包含 SHA256 校验和
+- ❌ 使用绝对路径声明可执行文件
+- ❌ 在包中执行任意脚本
+- ❌ 跳过版本号更新直接发布
+
+## 必须遵守
+
+- ✅ 使用语义化版本号
+- ✅ 发布包必须包含 SHA256 校验和
+- ✅ 可执行文件必须在 `bin` 字段声明
+- ✅ 遵循 CursorToolset 包结构规范
+- ✅ 使用 GitHub Actions 自动化发布流程
+
+## 本地开发环境
+
+### 安装 CursorToolset
+
+```bash
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/shichao402/CursorToolset/ReleaseLatest/scripts/install.sh | bash
+
+# 添加到 PATH
+echo 'export PATH="$HOME/.cursortoolsets/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+### 环境变量
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `CURSOR_TOOLSET_HOME` | CursorToolset 安装目录 | `~/.cursortoolsets` |
+
+### 目录结构
+
+```
+~/.cursortoolsets/
+├── repos/           # 已安装的包
+├── cache/           # 下载缓存
+├── config/          # 配置文件
+└── bin/             # 可执行文件符号链接
+```

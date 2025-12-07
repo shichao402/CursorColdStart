@@ -87,18 +87,39 @@ func (e *Executor) firstInit(targetDir string) error {
 			"framework": "",
 			"platforms": []string{},
 		},
-		"features.json": map[string]interface{}{
-			"$schema": "功能特性配置",
+		"packs.json": map[string]interface{}{
+			"$schema": "功能包配置 - 运行 coldstart list packs 查看可用功能包",
 			"logging": map[string]interface{}{
-				"enabled":      true,
-				"serviceClass": "LogService",
-				"filePath":     "logs/app.log",
+				"enabled": true,
+				"config": map[string]interface{}{
+					"serviceClass": "LogService",
+					"filePath":     "logs/app.log",
+				},
 			},
-			"githubAction": map[string]interface{}{
+			"version-management": map[string]interface{}{
+				"enabled": false,
+				"config": map[string]interface{}{
+					"sourceFile": "VERSION.yaml",
+				},
+			},
+			"github-actions": map[string]interface{}{
 				"enabled": false,
 			},
 			"documentation": map[string]interface{}{
 				"enabled": true,
+			},
+			"cursortoolset": map[string]interface{}{
+				"enabled": false,
+				"config": map[string]interface{}{
+					"packageName": "",
+				},
+			},
+			"update-module": map[string]interface{}{
+				"enabled": false,
+				"config": map[string]interface{}{
+					"moduleName": "",
+					"modulePath": "",
+				},
 			},
 		},
 	}
@@ -124,7 +145,7 @@ func (e *Executor) firstInit(targetDir string) error {
 ├── config/
 │   ├── project.json      # 项目基本信息
 │   ├── technology.json   # 技术栈配置
-│   └── features.json     # 功能特性配置
+│   └── packs.json        # 功能包配置
 └── modules/              # 已注入的模块配置
 ` + "```" + `
 
@@ -145,12 +166,18 @@ func (e *Executor) firstInit(targetDir string) error {
 - framework: 框架 - flutter/react/vue/django/fastapi/android/ios
 - platforms: 目标平台 - android/ios/web/macos/windows/linux
 
-### features.json
-- logging: 日志配置
-- githubAction: GitHub Action 配置
-- documentation: 文档配置
+### packs.json
+功能包配置，每个功能包可以独立启用/禁用：
+- logging: 日志系统
+- version-management: 版本管理
+- github-actions: GitHub Actions CI/CD
+- documentation: 文档管理
+- cursortoolset: CursorToolset 包管理
+- update-module: 应用更新模块
 
-运行 ` + "`coldstart list`" + ` 查看所有可用选项。
+注意：安全规范、调试规范、脚本规范已内置在核心规则中，无需单独配置。
+
+运行 ` + "`coldstart list packs`" + ` 查看所有可用功能包。
 `
 	readmePath := filepath.Join(targetDir, ".cursor-cold-start", "README.md")
 	if err := os.WriteFile(readmePath, []byte(readme), 0644); err != nil {
@@ -175,7 +202,7 @@ func (e *Executor) firstInit(targetDir string) error {
 	fmt.Println("  1. 让 AI 帮助填写配置文件：")
 	fmt.Println("     .cursor-cold-start/config/project.json")
 	fmt.Println("     .cursor-cold-start/config/technology.json")
-	fmt.Println("     .cursor-cold-start/config/features.json")
+	fmt.Println("     .cursor-cold-start/config/packs.json")
 	fmt.Println()
 	fmt.Println("  2. 配置完成后，再次运行：")
 	fmt.Printf("     coldstart init %s\n", targetDir)
@@ -201,9 +228,9 @@ func (e *Executor) updateInit(targetDir string) error {
 	techConfig, techOk, techMsg := e.checkTechnologyConfig(configDir)
 	fmt.Printf("  %s technology.json - %s\n", statusIcon(techOk), techMsg)
 
-	// 检查 features.json
-	featuresConfig, featuresOk, featuresMsg := e.checkFeaturesConfig(configDir)
-	fmt.Printf("  %s features.json - %s\n", statusIcon(featuresOk), featuresMsg)
+	// 检查 packs.json
+	packsConfig, packsOk, packsMsg := e.checkPacksConfig(configDir)
+	fmt.Printf("  %s packs.json - %s\n", statusIcon(packsOk), packsMsg)
 
 	fmt.Println()
 
@@ -216,7 +243,7 @@ func (e *Executor) updateInit(targetDir string) error {
 	}
 
 	// 合并配置
-	config := e.mergeConfigs(projectConfig, techConfig, featuresConfig)
+	config := e.mergeConfigs(projectConfig, techConfig, packsConfig)
 
 	// 生成规则
 	fmt.Println("📋 生成规则文件...")
@@ -270,9 +297,9 @@ func (e *Executor) checkTechnologyConfig(configDir string) (map[string]interface
 	return config, true, fmt.Sprintf("完整 (%s)", language)
 }
 
-// checkFeaturesConfig 检查功能特性配置
-func (e *Executor) checkFeaturesConfig(configDir string) (map[string]interface{}, bool, string) {
-	filePath := filepath.Join(configDir, "features.json")
+// checkPacksConfig 检查功能包配置
+func (e *Executor) checkPacksConfig(configDir string) (map[string]interface{}, bool, string) {
+	filePath := filepath.Join(configDir, "packs.json")
 	config, err := readJSONFile(filePath)
 	if err != nil {
 		return nil, true, "使用默认配置"
@@ -282,7 +309,7 @@ func (e *Executor) checkFeaturesConfig(configDir string) (map[string]interface{}
 }
 
 // mergeConfigs 合并配置
-func (e *Executor) mergeConfigs(project, tech, features map[string]interface{}) map[string]interface{} {
+func (e *Executor) mergeConfigs(project, tech, packs map[string]interface{}) map[string]interface{} {
 	config := make(map[string]interface{})
 
 	// 项目信息
@@ -304,49 +331,45 @@ func (e *Executor) mergeConfigs(project, tech, features map[string]interface{}) 
 		config["codeLanguage"] = e.getCodeLanguage(lang)
 	}
 
-	// 功能特性
-	if features != nil {
-		if logging, ok := features["logging"].(map[string]interface{}); ok {
-			config["enableLogging"] = getBoolValue(logging, "enabled")
-			config["loggerServiceClass"] = getStringValue(logging, "serviceClass")
-			config["logFilePath"] = getStringValue(logging, "filePath")
-		}
-		if githubAction, ok := features["githubAction"].(map[string]interface{}); ok {
-			config["enableGitHubAction"] = getBoolValue(githubAction, "enabled")
-		}
-		if doc, ok := features["documentation"].(map[string]interface{}); ok {
-			config["enableDocumentation"] = getBoolValue(doc, "enabled")
-		}
-	}
+	// 功能包配置
+	config["packs"] = packs
 
 	return config
 }
 
-// copyCommonRules 复制通用规则
+// copyCommonRules 复制核心规则
 func (e *Executor) copyCommonRules(targetDir string) error {
 	rulesDir := filepath.Join(targetDir, ".cursor", "rules")
-	commonDir := filepath.Join(e.templateDir, "templates", "rules", "common")
+	coreDir := filepath.Join(e.templateDir, "templates", "core")
+	processor := template.NewProcessor()
 
-	// 只复制 00-core.mdc（通用规则）
-	coreTemplate := filepath.Join(commonDir, "00-core.mdc.template")
-	if utils.FileExists(coreTemplate) {
-		processor := template.NewProcessor()
-		outputFile := filepath.Join(rulesDir, "00-core.mdc")
+	// 使用最小化的占位符值
+	values := map[string]interface{}{
+		"PROJECT_NAME":           "项目",
+		"PROGRAMMING_LANGUAGE":   "待配置",
+		"FRAMEWORK":              "待配置",
+		"BUILD_TOOL":             "待配置",
+		"CODE_LANGUAGE":          "text",
+		"TARGET_PLATFORMS":       "待配置",
+		"LOGGER_SERVICE_CLASS":   "LogService",
+	}
 
-		// 使用最小化的占位符值
-		values := map[string]interface{}{
-			"PROJECT_NAME":         "项目",
-			"PROGRAMMING_LANGUAGE": "待配置",
-			"FRAMEWORK":            "待配置",
-			"BUILD_TOOL":           "待配置",
-			"CODE_LANGUAGE":        "text",
-			"TARGET_PLATFORMS":     "待配置",
+	// 复制 core/ 目录下的所有规则
+	if utils.DirExists(coreDir) {
+		entries, _ := os.ReadDir(coreDir)
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".template") {
+				templateFile := filepath.Join(coreDir, entry.Name())
+				baseName := strings.TrimSuffix(entry.Name(), ".template")
+				outputFile := filepath.Join(rulesDir, baseName)
+
+				if err := processor.RenderTemplateToFile(templateFile, outputFile, values); err != nil {
+					fmt.Printf("  ⚠️  %s (跳过: %v)\n", baseName, err)
+					continue
+				}
+				fmt.Printf("  ✅ .cursor/rules/%s\n", baseName)
+			}
 		}
-
-		if err := processor.RenderTemplateToFile(coreTemplate, outputFile, values); err != nil {
-			return fmt.Errorf("无法生成 00-core.mdc: %w", err)
-		}
-		fmt.Println("  ✅ .cursor/rules/00-core.mdc")
 	}
 
 	return nil
@@ -358,13 +381,13 @@ func (e *Executor) generateRules(targetDir string, config map[string]interface{}
 	processor := template.NewProcessor()
 	values := e.init.GetPlaceholderValues(config)
 
-	// 1. 通用规则
-	commonDir := filepath.Join(e.templateDir, "templates", "rules", "common")
-	if utils.DirExists(commonDir) {
-		entries, _ := os.ReadDir(commonDir)
+	// 1. 核心规则
+	coreDir := filepath.Join(e.templateDir, "templates", "core")
+	if utils.DirExists(coreDir) {
+		entries, _ := os.ReadDir(coreDir)
 		for _, entry := range entries {
 			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".template") {
-				templateFile := filepath.Join(commonDir, entry.Name())
+				templateFile := filepath.Join(coreDir, entry.Name())
 				baseName := strings.TrimSuffix(entry.Name(), ".template")
 				outputFile := filepath.Join(rulesDir, baseName)
 
@@ -380,7 +403,7 @@ func (e *Executor) generateRules(targetDir string, config map[string]interface{}
 	// 2. 语言规则
 	lang := getStringValue(config, "language")
 	if lang != "" {
-		langDir := filepath.Join(e.templateDir, "templates", "rules", "languages")
+		langDir := filepath.Join(e.templateDir, "templates", "tech", "languages")
 		langTemplate := filepath.Join(langDir, fmt.Sprintf("10-%s.mdc.template", lang))
 		if utils.FileExists(langTemplate) {
 			outputFile := filepath.Join(rulesDir, fmt.Sprintf("10-%s.mdc", lang))
@@ -393,7 +416,7 @@ func (e *Executor) generateRules(targetDir string, config map[string]interface{}
 	// 3. 框架规则
 	framework := getStringValue(config, "framework")
 	if framework != "" {
-		fwDir := filepath.Join(e.templateDir, "templates", "rules", "frameworks")
+		fwDir := filepath.Join(e.templateDir, "templates", "tech", "frameworks")
 		fwTemplate := filepath.Join(fwDir, fmt.Sprintf("20-%s.mdc.template", framework))
 		if utils.FileExists(fwTemplate) {
 			outputFile := filepath.Join(rulesDir, fmt.Sprintf("20-%s.mdc", framework))
@@ -407,7 +430,7 @@ func (e *Executor) generateRules(targetDir string, config map[string]interface{}
 	platforms := getSliceValue(config, "platforms")
 	platformPriority := 30
 	for _, platform := range platforms {
-		platformDir := filepath.Join(e.templateDir, "templates", "rules", "platforms")
+		platformDir := filepath.Join(e.templateDir, "templates", "tech", "platforms")
 		platformTemplate := filepath.Join(platformDir, fmt.Sprintf("30-%s.mdc.template", platform))
 		if utils.FileExists(platformTemplate) {
 			outputFile := filepath.Join(rulesDir, fmt.Sprintf("%d-%s.mdc", platformPriority, platform))
@@ -415,6 +438,106 @@ func (e *Executor) generateRules(targetDir string, config map[string]interface{}
 				fmt.Printf("  ✅ %d-%s.mdc\n", platformPriority, platform)
 			}
 			platformPriority++
+		}
+	}
+
+	// 5. 功能包规则
+	packs, _ := config["packs"].(map[string]interface{})
+	if packs != nil {
+		packsDir := filepath.Join(e.templateDir, "templates", "packs")
+		
+		// 遍历所有功能包
+		packEntries, _ := os.ReadDir(packsDir)
+		for _, packEntry := range packEntries {
+			if !packEntry.IsDir() {
+				continue
+			}
+			
+			packID := packEntry.Name()
+			packConfig, ok := packs[packID].(map[string]interface{})
+			if !ok {
+				continue
+			}
+			
+			// 检查是否启用
+			if !getBoolValue(packConfig, "enabled") {
+				continue
+			}
+			
+			// 读取 pack.config.json 获取优先级和依赖
+			packConfigFile := filepath.Join(packsDir, packID, "pack.config.json")
+			packMeta, err := readJSONFile(packConfigFile)
+			if err != nil {
+				continue
+			}
+			
+			// 检查依赖
+			dependencies := getStringSliceFromInterface(packMeta["dependencies"])
+			missingDeps := []string{}
+			for _, dep := range dependencies {
+				depConfig, ok := packs[dep].(map[string]interface{})
+				if !ok || !getBoolValue(depConfig, "enabled") {
+					missingDeps = append(missingDeps, dep)
+				}
+			}
+			if len(missingDeps) > 0 {
+				fmt.Printf("  ⚠️  %s (跳过: 缺少依赖 %v)\n", packID, missingDeps)
+				continue
+			}
+			
+			priority := int(getFloatValue(packMeta, "priority"))
+			if priority == 0 {
+				priority = 40 // 默认优先级
+			}
+			
+			// 合并 pack 特定配置到 values
+			packValues := make(map[string]interface{})
+			for k, v := range values {
+				packValues[k] = v
+			}
+			
+			// 添加 pack 配置（使用智能字段映射）
+			if packCfg, ok := packConfig["config"].(map[string]interface{}); ok {
+				for k, v := range packCfg {
+					// 字段名映射表
+					fieldMapping := map[string]string{
+						"serviceClass": "LOGGER_SERVICE_CLASS",
+						"filePath":     "LOG_FILE_PATH",
+						"sourceFile":   "VERSION_SOURCE_FILE",
+						"packageName":  "PACKAGE_NAME",
+						"moduleName":   "MODULE_NAME",
+						"modulePath":   "MODULE_PATH",
+					}
+					
+					if mappedKey, ok := fieldMapping[k]; ok {
+						packValues[mappedKey] = v
+					} else {
+						// 默认转换为大写下划线格式
+						packValues[toUpperSnakeCase(k)] = v
+					}
+				}
+			}
+			
+			// 生成规则文件
+			rulesPath := filepath.Join(packsDir, packID, "rules")
+			if utils.DirExists(rulesPath) {
+				ruleEntries, _ := os.ReadDir(rulesPath)
+				for _, ruleEntry := range ruleEntries {
+					if ruleEntry.IsDir() || !strings.HasSuffix(ruleEntry.Name(), ".template") {
+						continue
+					}
+					
+					templateFile := filepath.Join(rulesPath, ruleEntry.Name())
+					baseName := strings.TrimSuffix(ruleEntry.Name(), ".template")
+					outputFile := filepath.Join(rulesDir, fmt.Sprintf("%d-%s", priority, baseName))
+					
+					if err := processor.RenderTemplateToFile(templateFile, outputFile, packValues); err != nil {
+						fmt.Printf("  ⚠️  %d-%s (跳过: %v)\n", priority, baseName, err)
+						continue
+					}
+					fmt.Printf("  ✅ %d-%s\n", priority, baseName)
+				}
+			}
 		}
 	}
 
@@ -441,8 +564,8 @@ func (e *Executor) List(listType string) error {
 		e.listFrameworks(options)
 	case "platforms", "plat":
 		e.listPlatforms(options)
-	case "modules", "mod":
-		e.listModules()
+	case "packs", "pack":
+		e.listPacks()
 	default:
 		// 列出所有
 		fmt.Println("可用选项：")
@@ -450,6 +573,8 @@ func (e *Executor) List(listType string) error {
 		e.listLanguages(options)
 		fmt.Println()
 		e.listPlatforms(options)
+		fmt.Println()
+		e.listPacks()
 		fmt.Println()
 		fmt.Println("提示：运行 'coldstart list languages' 查看语言对应的框架")
 	}
@@ -510,24 +635,25 @@ func (e *Executor) listPlatforms(options map[string]interface{}) {
 	}
 }
 
-func (e *Executor) listModules() {
-	fmt.Println("📦 可用模块：")
-	modulesDir := filepath.Join(e.templateDir, "templates", "modules")
-	entries, err := os.ReadDir(modulesDir)
+func (e *Executor) listPacks() {
+	fmt.Println("📦 可用功能包：")
+	packsDir := filepath.Join(e.templateDir, "templates", "packs")
+	entries, err := os.ReadDir(packsDir)
 	if err != nil {
-		fmt.Println("  (暂无可用模块)")
+		fmt.Println("  (暂无可用功能包)")
 		return
 	}
 
 	for _, entry := range entries {
 		if entry.IsDir() {
-			configFile := filepath.Join(modulesDir, entry.Name(), "module.config.json")
+			configFile := filepath.Join(packsDir, entry.Name(), "pack.config.json")
 			if utils.FileExists(configFile) {
 				config, err := readJSONFile(configFile)
 				if err == nil {
-					name := getStringValue(config, "moduleName")
-					desc := getStringValue(config, "moduleDescription")
-					fmt.Printf("  - %s: %s\n", entry.Name(), name)
+					name := getStringValue(config, "name")
+					desc := getStringValue(config, "description")
+					category := getStringValue(config, "category")
+					fmt.Printf("  - %s: %s [%s]\n", entry.Name(), name, category)
 					if desc != "" {
 						fmt.Printf("    %s\n", desc)
 					}
@@ -579,6 +705,18 @@ func statusIcon(ok bool) string {
 	return "⚠️ "
 }
 
+// toUpperSnakeCase 将 camelCase 转换为 UPPER_SNAKE_CASE
+func toUpperSnakeCase(s string) string {
+	var result strings.Builder
+	for i, r := range s {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			result.WriteRune('_')
+		}
+		result.WriteRune(r)
+	}
+	return strings.ToUpper(result.String())
+}
+
 func readJSONFile(filePath string) (map[string]interface{}, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -620,18 +758,41 @@ func getSliceValue(m map[string]interface{}, key string) []string {
 		return []string{}
 	}
 	if v, ok := m[key]; ok {
-		if arr, ok := v.([]interface{}); ok {
-			result := make([]string, 0, len(arr))
-			for _, item := range arr {
-				if s, ok := item.(string); ok {
-					result = append(result, s)
-				}
-			}
-			return result
-		}
-		if arr, ok := v.([]string); ok {
-			return arr
-		}
+		return getStringSliceFromInterface(v)
 	}
 	return []string{}
+}
+
+func getStringSliceFromInterface(v interface{}) []string {
+	if v == nil {
+		return []string{}
+	}
+	if arr, ok := v.([]interface{}); ok {
+		result := make([]string, 0, len(arr))
+		for _, item := range arr {
+			if s, ok := item.(string); ok {
+				result = append(result, s)
+			}
+		}
+		return result
+	}
+	if arr, ok := v.([]string); ok {
+		return arr
+	}
+	return []string{}
+}
+
+func getFloatValue(m map[string]interface{}, key string) float64 {
+	if m == nil {
+		return 0
+	}
+	if v, ok := m[key]; ok {
+		if f, ok := v.(float64); ok {
+			return f
+		}
+		if i, ok := v.(int); ok {
+			return float64(i)
+		}
+	}
+	return 0
 }

@@ -1,0 +1,20 @@
+{
+  "id": "logging",
+  "name": "日志系统",
+  "description": "统一的日志服务规范，包括日志API、日志文件管理、日志收集脚本",
+  "category": "feature",
+  "priority": 40,
+  "dependencies": [],
+  "config": {
+    "serviceClass": {
+      "type": "string",
+      "default": "LogService",
+      "description": "日志服务类名"
+    },
+    "filePath": {
+      "type": "string",
+      "default": "logs/app.log",
+      "description": "日志文件路径"
+    }
+  }
+}
