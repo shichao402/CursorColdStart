@@ -1,22 +1,45 @@
 ---
 alwaysApply: true
 ---
-# CursorToolset 包管理规则
+# CursorToolset 包开发规则
 
 ## 概述
 
-本项目使用 **CursorToolset** 进行工具集管理和分发。CursorToolset 是一个专为 Cursor AI 助手工具集设计的包管理器，遵循简单、安全、透明的设计理念。
+本项目是一个 **CursorToolset 包**，遵循 CursorToolset 包开发规范进行开发、打包和发布。
 
 ## 核心约束（强制）
 
-1. **必须使用 `package.json`（或 `toolset.json`）作为包清单文件**
-2. **发布包必须包含 SHA256 校验和**
-3. **可执行文件必须在 `bin` 字段中声明**
-4. **遵循语义化版本规范**
+1. **必须使用 `cursortoolset release` 命令发布**（唯一推荐方式）
+2. **必须使用 `cursortoolset pack` 命令打包**（保证版本一致性）
+3. **发布包必须包含 SHA256 校验和**
+4. **可执行文件必须在 `bin` 字段中声明（支持多平台）**
+5. **遵循语义化版本规范**
 
-## 包清单文件格式
+## 目录结构规范
 
-### package.json / toolset.json 必需字段
+```
+CursorColdStart/
+├── package.json              # 包清单文件（必需）
+├── README.md                 # 说明文档
+├── bin/                      # 可执行文件目录
+│   ├── cursor-cold-start-darwin-amd64
+│   ├── cursor-cold-start-darwin-arm64
+│   ├── cursor-cold-start-linux-amd64
+│   ├── cursor-cold-start-linux-arm64
+│   ├── cursor-cold-start-windows-amd64.exe
+│   └── cursor-cold-start-windows-arm64.exe
+├── .github/
+│   └── workflows/
+│       └── release.yml       # 自动发布工作流
+├── .cursortoolset/           # CursorToolset 本地配置
+│   ├── rules/                # 同步的规则文件
+│   └── docs/                 # 同步的文档
+└── scripts/                  # 脚本文件
+```
+
+## package.json 规范
+
+### 完整示例
 
 ```json
 {
@@ -32,7 +55,14 @@ alwaysApply: true
     "url": "https://github.com/username/cursor-cold-start.git"
   },
   "bin": {
-    "command-name": "./bin/executable"
+    "cursor-cold-start": {
+      "darwin-amd64": "bin/cursor-cold-start-darwin-amd64",
+      "darwin-arm64": "bin/cursor-cold-start-darwin-arm64",
+      "linux-amd64": "bin/cursor-cold-start-linux-amd64",
+      "linux-arm64": "bin/cursor-cold-start-linux-arm64",
+      "windows-amd64": "bin/cursor-cold-start-windows-amd64.exe",
+      "windows-arm64": "bin/cursor-cold-start-windows-arm64.exe"
+    }
   },
   "dist": {
     "tarball": "cursor-cold-start-1.0.0.tar.gz",
@@ -48,112 +78,117 @@ alwaysApply: true
 
 | 字段 | 必需 | 说明 |
 |------|------|------|
-| `name` | ✅ | 包的唯一标识符，用于命令行操作 |
-| `version` | ✅ | 语义化版本号 |
+| `name` | ✅ | 包名，小写字母、数字、连字符 |
+| `version` | ✅ | 语义化版本号 (MAJOR.MINOR.PATCH) |
 | `description` | ✅ | 包的简要描述 |
-| `dist.tarball` | ✅ | 发布包文件名或下载链接 |
+| `dist.tarball` | ✅ | 发布包文件名（相对路径） |
 | `dist.sha256` | ✅ | 发布包的 SHA256 校验和 |
-| `bin` | ⚪ | 可执行文件映射 |
+| `bin` | ⚪ | 可执行文件映射（支持多平台） |
 | `cursortoolset.minVersion` | ⚪ | 最低管理器版本要求 |
 
-## 目录结构规范
+### 多平台 bin 配置
 
-```
-CursorColdStart/
-├── package.json          # 包清单文件（必需）
-├── README.md             # 说明文档
-├── bin/                  # 可执行文件目录
-│   └── cursor-cold-start*
-├── rules_template/       # 规则模板（如适用）
-├── scripts/              # 脚本文件
-└── .cursortoolset/       # CursorToolset 本地配置
-    ├── rules/            # 同步的规则文件
-    └── docs/             # 同步的文档
-```
+支持的平台标识：
 
-## 常用命令
+| 平台 | 标识 |
+|------|------|
+| macOS Intel | `darwin-amd64` |
+| macOS Apple Silicon | `darwin-arm64` |
+| Linux x64 | `linux-amd64` |
+| Linux ARM64 | `linux-arm64` |
+| Windows x64 | `windows-amd64` |
+| Windows ARM64 | `windows-arm64` |
 
-### 包管理
+## 开发命令
+
+### 初始化新包
 
 ```bash
-# 更新包索引
-cursortoolset registry update
-
-# 搜索包
-cursortoolset search <关键词>
-
-# 安装包
-cursortoolset install <包名>
-
-# 查看包信息
-cursortoolset info <包名>
-
-# 卸载包
-cursortoolset uninstall <包名>
-
-# 更新所有已安装的包
-cursortoolset update
-
-# 更新管理器自身
-cursortoolset update --self
-```
-
-### 包开发
-
-```bash
-# 初始化新包项目
 cursortoolset init <包名>
+```
 
-# 打包（生成 .tar.gz 并计算 SHA256）
+### 打包（唯一标准方式）
+
+```bash
+# 打包并计算 SHA256
 cursortoolset pack
 
-# 验证打包
+# 验证打包结果
 cursortoolset pack --verify
 ```
 
-## 发布流程
+> **重要**：始终使用 `cursortoolset pack`，不要手动执行 tar 打包。
 
-### 1. 准备发布
+## 发布流程（唯一推荐方式）
 
-确保 `package.json` 包含所有必需字段：
-
-```bash
-# 验证包配置
-cat package.json | jq '.name, .version, .description'
-```
-
-### 2. 构建和打包
+### 使用 cursortoolset release 命令
 
 ```bash
-# 构建项目（如有）
-make build
+# 发布 patch 版本 (0.0.x) - 默认
+cursortoolset release
 
-# 使用 CursorToolset 打包
-cursortoolset pack
+# 发布 minor 版本 (0.x.0)
+cursortoolset release --minor
+
+# 发布 major 版本 (x.0.0)
+cursortoolset release --major
+
+# 预览发布流程（不执行）
+cursortoolset release --dry-run
 ```
 
-### 3. 创建 GitHub Release
+**命令自动完成：**
 
-1. 提交代码并推送
-2. 创建版本标签：`git tag v1.0.0 && git push origin v1.0.0`
-3. GitHub Actions 自动构建并创建 Release
+1. ✅ 提升 `package.json` 中的版本号
+2. ✅ 打包 tarball（包含正确版本的 package.json）
+3. ✅ 计算 SHA256 并更新 `package.json`
+4. ✅ Git commit
+5. ✅ 创建 Git tag
+6. ✅ 推送到远程仓库
 
-### 4. 更新 dist 信息
+> **提示**：使用 `--dry-run` 先预览，确认无误后再正式发布。
 
-发布后更新 `package.json` 中的 `dist` 字段：
+### 发布后自动流程
 
-```json
-{
-  "dist": {
-    "tarball": "https://github.com/username/cursor-cold-start/releases/download/v1.0.0/cursor-cold-start-1.0.0.tar.gz",
-    "sha256": "实际的SHA256值"
-  }
-}
+推送 tag 后，GitHub Actions 会自动：
+
+1. 创建 Release 并上传文件
+2. **首次发布**：自动创建 `[auto-register]` Issue，触发注册到 CursorToolset
+3. **后续发布**：自动创建 `[sync]` Issue，触发版本同步
+
+## 注册与同步机制
+
+### 首次发布 - 自动注册
+
+首次发布时，GitHub Actions 会自动创建 `[auto-register]` Issue 到 CursorToolset 仓库：
+
+1. CI 验证包的有效性（仓库结构、版本信息等）
+2. 验证通过后，自动添加到 `registry.json`
+3. 注册表更新后发布到 `registry` Release
+
+### 后续发布 - 自动同步
+
+后续发布时，GitHub Actions 会自动创建 `[sync]` Issue：
+
+1. 触发 CursorToolset 立即同步版本信息
+2. 也可等待定时同步（每小时一次）
+
+### 手动注册（维护者使用）
+
+```bash
+# 添加包到注册表
+cursortoolset registry add https://github.com/user/repo
+
+# 移除包
+cursortoolset registry remove package-name
+
+# 导出注册表
+cursortoolset registry export > registry.json
 ```
 
-## GitHub Actions 集成
+## GitHub Actions 工作流
 
-### 自动发布工作流
+### 自动发布工作流模板
 
 ```yaml
 name: Release
@@ -188,9 +223,9 @@ jobs:
             --exclude='*.go' \
             --exclude='go.mod' \
             --exclude='go.sum' \
-            bin/ rules_template/ README.md package.json
+            .
       
-      # 计算 SHA256
+      # 计算 SHA256 并生成 release package.json
       - name: Generate release package.json
         run: |
           PACKAGE_NAME=$(jq -r '.name' package.json)
@@ -210,37 +245,105 @@ jobs:
             /tmp/release/package.json
             /tmp/release/*.tar.gz
           generate_release_notes: true
+      
+      # 触发注册/同步（首次发布为 auto-register，后续为 sync）
+      - name: Trigger Registry Sync
+        uses: peter-evans/create-issue@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: shichao402/CursorToolset
+          title: "[sync] ${{ github.repository }} v${{ github.ref_name }}"
+          body: |
+            Package: ${{ github.repository }}
+            Version: ${{ github.ref_name }}
+            Release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
 ```
 
-## 安全规范
+## 常见问题
 
-### SHA256 校验
+### Q: 每次 `cursortoolset update` 都重复安装同一个包
 
-- ✅ 发布前必须计算并记录 SHA256
-- ✅ 安装时自动验证校验和
-- ❌ 禁止跳过校验和验证
+**原因**：tarball 内的 `package.json` 版本号与 release 版本不一致。
 
-### 可执行文件
+**解决**：使用 `cursortoolset release` 重新发布，它会自动保证版本一致性。
 
-- ✅ 所有可执行文件必须在 `bin` 字段声明
-- ✅ 可执行文件路径使用相对路径
-- ❌ 禁止在包中包含未声明的可执行脚本
+### Q: tarball 打包时出现 "file changed as we read it"
+
+**原因**：tar 输出在当前目录，打包时包含了自己。
+
+**解决**：输出到 `/tmp/release/` 或其他目录。
+
+### Q: 排除规则把构建产物也排除了
+
+**原因**：使用了 `--exclude='core/tools'` 这样的目录排除。
+
+**解决**：精确排除源码文件：
+
+```bash
+--exclude='*.go' \
+--exclude='go.mod' \
+--exclude='go.sum'
+```
+
+### Q: 安装后 bin 命令找不到
+
+**检查**：
+1. `bin` 配置的路径是否正确
+2. 平台标识是否匹配当前系统
+3. 文件是否有执行权限
+
+### Q: 包注册后在 registry 中找不到
+
+**原因**：`[auto-register]` Issue 可能未被处理或验证失败。
+
+**解决**：
+1. 检查 CursorToolset 仓库的 Issues
+2. 确认包结构符合规范
+3. 手动联系维护者或重新发布
 
 ## 禁止行为
 
-- ❌ 不在 `package.json` 中声明版本
+- ❌ 手动执行 tar 打包（使用 `cursortoolset pack`）
+- ❌ 手动修改版本号后发布（使用 `cursortoolset release`）
 - ❌ 发布时不包含 SHA256 校验和
 - ❌ 使用绝对路径声明可执行文件
-- ❌ 在包中执行任意脚本
 - ❌ 跳过版本号更新直接发布
+- ❌ 不在 `package.json` 中声明版本
 
 ## 必须遵守
 
+- ✅ 使用 `cursortoolset release` 发布（唯一推荐方式）
+- ✅ 使用 `cursortoolset pack` 打包
 - ✅ 使用语义化版本号
 - ✅ 发布包必须包含 SHA256 校验和
 - ✅ 可执行文件必须在 `bin` 字段声明
-- ✅ 遵循 CursorToolset 包结构规范
-- ✅ 使用 GitHub Actions 自动化发布流程
+- ✅ 配置 GitHub Actions 自动化发布和注册
+- ✅ 发布前使用 `--dry-run` 预览
+
+## 包管理命令参考
+
+```bash
+# 更新包索引
+cursortoolset registry update
+
+# 搜索包
+cursortoolset search <关键词>
+
+# 安装包
+cursortoolset install <包名>
+
+# 查看包信息
+cursortoolset info <包名>
+
+# 卸载包
+cursortoolset uninstall <包名>
+
+# 更新所有已安装的包
+cursortoolset update
+
+# 更新管理器自身
+cursortoolset update --self
+```
 
 ## 本地开发环境
 
@@ -254,12 +357,6 @@ curl -fsSL https://raw.githubusercontent.com/shichao402/CursorToolset/ReleaseLat
 echo 'export PATH="$HOME/.cursortoolsets/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 ```
-
-### 环境变量
-
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `CURSOR_TOOLSET_HOME` | CursorToolset 安装目录 | `~/.cursortoolsets` |
 
 ### 目录结构
 
