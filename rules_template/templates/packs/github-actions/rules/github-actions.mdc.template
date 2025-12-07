@@ -6,156 +6,74 @@ alwaysApply: true
 ## 核心约束（强制）
 
 1. **CI/CD 流程必须完全自动化**
-2. **构建和发布必须分离（构建标签 vs 发布标签）**
-3. **构建号必须自动递增**
-4. **更新配置文件必须自动生成**
+2. **构建、测试、发布必须分离（三阶段流程）**
+3. **正式发布前必须经过测试验证**
+4. **构建产物必须包含校验信息（SHA256）**
 
-## 两阶段发布流程
+## 三阶段发布流程
 
 ### 阶段1：构建（Build）
 
 **触发：** 推送 `build*` 标签（如 `build1.0.7`）
 
 **步骤：**
-1. 并行构建所有平台
-2. 自动递增构建号
-3. 提交构建号更新
-4. 上传构建产物到 artifacts
+1. 并行构建所有目标平台
+2. 运行单元测试
+3. 上传构建产物到 artifacts
 
-### 阶段2：发布（Release）
+### 阶段2：测试（Test）
 
-**触发：** 推送 `v*` 标签或手动触发
+**触发：** 推送 `test*` 标签（如 `test1.0.7`）
 
 **步骤：**
 1. 下载构建产物
-2. 计算文件 hash
-3. 生成更新配置文件
-4. 创建 GitHub Release
-5. 上传构建产物和配置文件
+2. 创建预发布 Release（Pre-release）
+3. 执行集成测试/验收测试
+4. 人工验证（如需要）
 
-## 工作流结构
+### 阶段3：发布（Release）
 
-### 构建工作流（build.yml）
+**触发：** 推送 `v*` 标签（如 `v1.0.7`）
 
-```yaml
-name: Build All Platforms
+**前置条件：** 测试阶段验证通过
 
-on:
-  push:
-    tags:
-      - 'build*'
-  workflow_dispatch:
+**步骤：**
+1. 下载已验证的构建产物
+2. 计算文件 SHA256
+3. 创建正式 GitHub Release
+4. 上传构建产物
 
-jobs:
-  build-platform-1:
-    # 平台1构建任务
-  build-platform-2:
-    # 平台2构建任务
-  
-  increment-build-number:
-    needs: [build-platform-1, build-platform-2]
-    steps:
-      - name: Increment build number
-        run: |
-          # 从 VERSION.yaml 读取版本
-          # 递增构建号
-          # 提交并推送
-```
+## 标签规范
 
-### 发布工作流（release.yml）
-
-```yaml
-name: Create Release
-
-on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: '版本号'
-        required: false
-
-jobs:
-  create-release:
-    steps:
-      - name: Download artifacts
-        # 下载构建产物
-      - name: Calculate hash
-        # 计算 SHA256
-      - name: Generate update config
-        # 生成更新配置
-      - name: Create Release
-        # 创建 GitHub Release
-```
-
-## 构建产物命名
-
-### 文件命名规则
-
-**格式：** `{project}_{platform}_{version}build{build}.zip`
-
-**示例：**
-- `MyApp_macos_1.0.7build13.zip`
-- `MyApp_windows_1.0.7build13.zip`
-- `MyApp_linux_1.0.7build13.zip`
-
-**注意：** 使用 `build` 替代 `+` 避免 URL 特殊字符问题
-
-### ZIP 包内文件
-
-ZIP 包内的安装文件使用固定命名（不含版本号）：
-- 版本信息由 ZIP 文件名和 hash 保证
-- 简化更新逻辑
-
-## 更新配置文件
-
-### 配置文件位置
-
-固定的 GitHub Release（标签：`UpdateConfig`）
-
-**URL：** `https://github.com/{owner}/{repo}/releases/download/UpdateConfig/update_config.json`
-
-### 配置文件格式
-
-```json
-{
-  "component": {
-    "version": "1.0.7+13",
-    "versionNumber": "1.0.7",
-    "platforms": {
-      "platform_name": {
-        "version": "1.0.7+13",
-        "downloadUrl": "https://...",
-        "fileName": "...",
-        "fileHash": "sha256_value"
-      }
-    }
-  },
-  "lastUpdated": "2024-01-01T12:00:00Z"
-}
-```
+| 标签格式 | 用途 | 示例 |
+|---------|------|------|
+| `build{version}` | 触发构建 | `build1.0.7` |
+| `test{version}` | 触发测试发布 | `test1.0.7` |
+| `v{version}` | 触发正式发布 | `v1.0.7` |
 
 ## 发布流程
 
-### 标准流程
-
-```bash
-# 1. 更新版本号
-./scripts/version.sh bump component minor
-
-# 2. 提交代码
-git add VERSION.yaml
-git commit -m "Bump version to x.y.z"
-git push origin main
-
-# 3. 创建构建标签
-git tag build1.0.7
-git push origin build1.0.7
-
-# 4. 等待构建完成（GitHub Actions）
-
-# 5. 创建发布（手动触发或推送 v 标签）
-git tag v1.0.7
-git push origin v1.0.7
+```pseudocode
+PROCEDURE release_workflow:
+    // 1. 构建阶段
+    UPDATE version_file
+    COMMIT "Bump version to x.y.z"
+    PUSH to main
+    CREATE tag "build{version}"
+    PUSH tag
+    WAIT for build to complete
+    
+    // 2. 测试阶段
+    CREATE tag "test{version}"
+    PUSH tag
+    WAIT for test release to complete
+    VERIFY pre-release works correctly
+    
+    // 3. 正式发布
+    CREATE tag "v{version}"
+    PUSH tag
+    // GitHub Actions 自动创建正式 Release
+END PROCEDURE
 ```
 
 ## 权限配置
@@ -170,17 +88,15 @@ permissions:
 
 - ❌ 手动创建 GitHub Release
 - ❌ 手动上传构建产物
-- ❌ 手动生成更新配置文件
-- ❌ 文件名使用 `+` 号
+- ❌ 跳过测试阶段直接发布
 - ❌ 不计算文件 hash
-- ❌ 不自动递增构建号
+- ❌ 不验证测试结果就发布
 
 ## 必须遵守
 
-- ✅ 使用两阶段发布流程
+- ✅ 使用三阶段发布流程（构建→测试→发布）
 - ✅ 构建标签：`build{version}`
+- ✅ 测试标签：`test{version}`
 - ✅ 发布标签：`v{version}`
-- ✅ 构建号自动递增
-- ✅ 自动生成更新配置文件
+- ✅ 测试通过后才能正式发布
 - ✅ 计算并包含文件 SHA256 hash
-- ✅ 构建产物文件名包含版本号

@@ -6,7 +6,7 @@ alwaysApply: true
 ## 核心约束（强制）
 
 1. **版本号必须由项目自身管理，不依赖外部平台**
-2. **版本号必须使用单一数据源（VERSION.yaml）**
+2. **版本号必须使用单一数据源（version.json）**
 3. **构建号必须自动递增**
 4. **版本号必须自动同步到项目配置文件**
 
@@ -33,62 +33,65 @@ alwaysApply: true
 
 ### 单一数据源
 
-版本号统一存储在 `VERSION.yaml` 文件中：
+版本号统一存储在 `version.json` 文件中：
 
-```yaml
-{{ COMPONENT_NAME }}:
-  version: "1.0.7+13"
-
-compatibility:
-  min_{{ COMPONENT_NAME }}_version: "1.0.6"
-
-update:
-  github:
-    url: https://github.com/{{ REPO_OWNER }}/{{ REPO_NAME }}/releases/download/UpdateConfig/update_config.json
+```json
+{
+  "{{ COMPONENT_NAME }}": {
+    "version": "1.0.7+13"
+  },
+  "compatibility": {
+    "min_{{ COMPONENT_NAME }}_version": "1.0.6"
+  }
+}
 ```
 
 ### 多组件项目
 
-```yaml
-client:
-  version: "1.0.7+13"
-server:
-  version: "1.0.8+5"
-
-compatibility:
-  min_client_version: "1.0.6"
-  min_server_version: "1.0.6"
+```json
+{
+  "client": {
+    "version": "1.0.7+13"
+  },
+  "server": {
+    "version": "1.0.8+5"
+  },
+  "compatibility": {
+    "min_client_version": "1.0.6",
+    "min_server_version": "1.0.6"
+  }
+}
 ```
 
 ## 版本管理脚本
 
-项目必须提供版本管理脚本 `scripts/version.sh`：
+项目应提供版本管理脚本：
 
-```bash
-# 查看版本
-./scripts/version.sh get [component]
+```pseudocode
+// 查看版本
+version get [component]
 
-# 设置版本
-./scripts/version.sh set [component] x.y.z+build
+// 设置版本
+version set [component] x.y.z+build
 
-# 递增版本
-./scripts/version.sh bump [component] [major|minor|patch|build]
+// 递增版本
+version bump [component] [major|minor|patch|build]
 
-# 同步到项目配置
-./scripts/version.sh sync [component]
+// 同步到项目配置
+version sync [component]
 ```
 
 ## 自动同步机制
 
-构建脚本必须自动从 `VERSION.yaml` 同步版本号到项目配置文件。
+构建脚本必须自动从 `version.json` 同步版本号到项目配置文件。
 
 **流程：**
 ```
-VERSION.yaml (单一数据源)
+version.json (单一数据源)
        ↓
   构建脚本自动同步
        ↓
-  项目配置文件 (pubspec.yaml / package.json / 等)
+  项目配置文件
 ```
 
 ## 版本兼容性检查
@@ -109,7 +112,7 @@ VERSION.yaml (单一数据源)
 
 ### 版本服务接口
 
-```
+```pseudocode
 VersionService:
   - getVersion()           // 返回完整版本 "x.y.z+build"
   - getVersionNumber()     // 返回版本号 "x.y.z"
@@ -119,7 +122,7 @@ VersionService:
 
 ### 使用示例（伪代码）
 
-```
+```pseudocode
 // ✅ 正确：通过版本服务获取
 version = VersionService.getVersion()
 buildNumber = VersionService.getBuildNumber()
@@ -137,7 +140,7 @@ version = "1.0.0"
 
 ## 必须遵守
 
-- ✅ 版本号存储在 VERSION.yaml
+- ✅ 版本号存储在 version.json
 - ✅ 提供版本管理脚本
 - ✅ 构建时自动同步版本号
 - ✅ 代码通过版本服务读取版本号

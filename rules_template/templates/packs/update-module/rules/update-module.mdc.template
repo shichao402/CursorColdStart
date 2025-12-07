@@ -20,7 +20,7 @@ alwaysApply: true
 
 ### 统一更新接口
 
-```
+```pseudocode
 UpdateManager:
   - checkUpdate()      // 检查更新，返回 UpdateResult
   - downloadUpdate()   // 下载更新，返回 UpdateResult
@@ -31,11 +31,11 @@ UpdateManager:
 
 ### 使用示例（伪代码）
 
-```
+```pseudocode
 // ✅ 正确：使用统一更新管理器
 manager = UpdateManager.getInstance()
 result = manager.checkUpdate()
-if result.hasUpdate:
+IF result.hasUpdate:
     manager.downloadUpdate()
     manager.installUpdate()
     manager.applyUpdate()
@@ -83,19 +83,19 @@ installManually()
 
 更新过程必须记录详细日志：
 
-```
+```pseudocode
 // 检查更新
-logger.log("开始检查更新", tag: "UPDATE")
-logger.log("更新服务器: " + updateUrl, tag: "UPDATE")
+logger.log("开始检查更新", "UPDATE")
+logger.log("更新服务器: " + updateUrl, "UPDATE")
 
 // 发现更新
-logger.log("发现新版本: " + newVersion, tag: "UPDATE")
+logger.log("发现新版本: " + newVersion, "UPDATE")
 
 // 下载进度
-logger.log("下载进度: " + progress + "%", tag: "UPDATE_DOWNLOAD")
+logger.log("下载进度: " + progress + "%", "UPDATE_DOWNLOAD")
 
 // 错误处理
-logger.logError("更新失败", error: e, stackTrace: trace, tag: "UPDATE")
+logger.logError("更新失败", error, "UPDATE")
 ```
 
 ### 日志标签
