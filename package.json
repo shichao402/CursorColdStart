@@ -42,7 +42,7 @@
     "toolset"
   ],
   "license": "MIT",
-  "name": "cursor-code-start",
+  "name": "cursor-cold-start",
   "repository": {
     "type": "git",
     "url": "https://github.com/shichao402/CursorColdStart.git"
