@@ -430,6 +430,9 @@ func (e *Executor) generateRules(targetDir string, config map[string]interface{}
 	processor := template.NewProcessor()
 	values := e.init.GetPlaceholderValues(config)
 
+	// 收集所有应该存在的规则文件名（用于后续清理）
+	expectedFiles := make(map[string]bool)
+
 	// 收集所有要生成的规则文件
 	type ruleFile struct {
 		templatePath string
@@ -502,6 +505,7 @@ func (e *Executor) generateRules(targetDir string, config map[string]interface{}
 
 		// 生成基础规则
 		for _, rule := range rules {
+			expectedFiles[rule.outputName] = true
 			outputFile := filepath.Join(rulesDir, rule.outputName)
 			if err := processor.RenderTemplateToFile(rule.templatePath, outputFile, values); err != nil {
 				fmt.Printf("  ⚠️  %s (跳过: %v)\n", rule.outputName, err)
@@ -513,15 +517,52 @@ func (e *Executor) generateRules(targetDir string, config map[string]interface{}
 		// 5. 功能包规则
 		packs, _ := config["packs"].(map[string]interface{})
 		if packs != nil {
-			e.generatePackRules(rulesDir, packs, values, processor)
+			packFiles := e.generatePackRules(rulesDir, packs, values, processor)
+			for _, f := range packFiles {
+				expectedFiles[f] = true
+			}
 		}
+
+		// 6. 清理不再需要的规则文件
+		e.cleanupObsoleteRules(rulesDir, expectedFiles)
 	}
 
 	return nil
 }
 
-// generatePackRules 生成功能包规则
-func (e *Executor) generatePackRules(rulesDir string, packs map[string]interface{}, values map[string]interface{}, processor *template.Processor) {
+// cleanupObsoleteRules 清理不再需要的规则文件
+func (e *Executor) cleanupObsoleteRules(rulesDir string, expectedFiles map[string]bool) {
+	entries, err := os.ReadDir(rulesDir)
+	if err != nil {
+		return
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		
+		fileName := entry.Name()
+		// 只处理 .mdc 文件
+		if !strings.HasSuffix(fileName, ".mdc") {
+			continue
+		}
+
+		// 如果文件不在预期列表中，删除它
+		if !expectedFiles[fileName] {
+			filePath := filepath.Join(rulesDir, fileName)
+			if err := os.Remove(filePath); err != nil {
+				fmt.Printf("  ⚠️  无法删除 %s: %v\n", fileName, err)
+			} else {
+				fmt.Printf("  🗑️  已删除 %s (不再需要)\n", fileName)
+			}
+		}
+	}
+}
+
+// generatePackRules 生成功能包规则，返回生成的文件名列表
+func (e *Executor) generatePackRules(rulesDir string, packs map[string]interface{}, values map[string]interface{}, processor *template.Processor) []string {
+	var generatedFiles []string
 	packsDir := filepath.Join(e.templateDir, "templates", "packs")
 	
 	// 遍历所有功能包
@@ -607,16 +648,20 @@ func (e *Executor) generatePackRules(rulesDir string, packs map[string]interface
 				
 				templateFile := filepath.Join(rulesPath, ruleEntry.Name())
 				baseName := strings.TrimSuffix(ruleEntry.Name(), ".template")
-				outputFile := filepath.Join(rulesDir, fmt.Sprintf("%d-%s", priority, baseName))
+				outputFileName := fmt.Sprintf("%d-%s", priority, baseName)
+				outputFile := filepath.Join(rulesDir, outputFileName)
 				
 				if err := processor.RenderTemplateToFile(templateFile, outputFile, packValues); err != nil {
-					fmt.Printf("  ⚠️  %d-%s (跳过: %v)\n", priority, baseName, err)
+					fmt.Printf("  ⚠️  %s (跳过: %v)\n", outputFileName, err)
 					continue
 				}
-				fmt.Printf("  ✅ %d-%s\n", priority, baseName)
+				fmt.Printf("  ✅ %s\n", outputFileName)
+				generatedFiles = append(generatedFiles, outputFileName)
 			}
 		}
 	}
+	
+	return generatedFiles
 }
 
 // List 列出可用选项
