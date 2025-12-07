@@ -30,7 +30,7 @@
   "displayName": "Cursor Cold Start",
   "dist": {
     "sha256": "TODO: 发布时自动填写",
-    "tarball": "cursor-cold-start-2.2.1.tar.gz"
+    "tarball": "cursor-cold-start-2.3.0.tar.gz"
   },
   "keywords": [
     "cursor",
@@ -47,5 +47,5 @@
     "type": "git",
     "url": "https://github.com/shichao402/CursorColdStart.git"
   },
-  "version": "2.2.1"
+  "version": "2.3.0"
 }

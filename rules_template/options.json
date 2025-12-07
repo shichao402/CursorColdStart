@@ -167,6 +167,12 @@
       "name": "应用更新模块",
       "category": "feature",
       "defaultEnabled": false
+    },
+    {
+      "id": "github-issue",
+      "name": "GitHub Issue 协作",
+      "category": "tool",
+      "defaultEnabled": false
     }
   ]
 }

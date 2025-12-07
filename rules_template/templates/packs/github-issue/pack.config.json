@@ -1,0 +1,20 @@
+{
+  "id": "github-issue",
+  "name": "GitHub Issue 协作",
+  "description": "标准化的 GitHub Issue 创建与处理工具，支持项目间自动化协作",
+  "category": "tool",
+  "priority": 52,
+  "dependencies": [],
+  "config": {
+    "defaultRepo": {
+      "type": "string",
+      "default": "",
+      "description": "默认目标仓库（格式：owner/repo）"
+    },
+    "tokenEnvVar": {
+      "type": "string",
+      "default": "GITHUB_TOKEN",
+      "description": "GitHub Token 环境变量名"
+    }
+  }
+}
