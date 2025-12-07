@@ -91,23 +91,32 @@ func findToolRoot() (string, error) {
 	// 1. 优先检查当前工作目录
 	cwd, err := os.Getwd()
 	if err == nil {
-		if _, err := os.Stat(cwd + "/rules_template"); err == nil {
+		if _, err := os.Stat(filepath.Join(cwd, "rules_template")); err == nil {
 			return cwd, nil
 		}
 	}
 
 	// 2. 检查可执行文件所在目录
 	execPath, err := os.Executable()
-	if err == nil {
-		execDir := filepath.Dir(execPath)
-		if _, err := os.Stat(filepath.Join(execDir, "rules_template")); err == nil {
-			return execDir, nil
-		}
-		// 3. 检查可执行文件的父目录（如 bin/coldstart）
-		parentDir := filepath.Dir(execDir)
-		if _, err := os.Stat(filepath.Join(parentDir, "rules_template")); err == nil {
-			return parentDir, nil
-		}
+	if err != nil {
+		return "", fmt.Errorf("找不到 rules_template 目录，请在 CursorColdStart 项目目录下运行")
+	}
+
+	// 解析符号链接，获取实际路径
+	realPath, err := filepath.EvalSymlinks(execPath)
+	if err != nil {
+		realPath = execPath
+	}
+
+	execDir := filepath.Dir(realPath)
+	if _, err := os.Stat(filepath.Join(execDir, "rules_template")); err == nil {
+		return execDir, nil
+	}
+
+	// 3. 检查可执行文件的父目录（如 bin/coldstart）
+	parentDir := filepath.Dir(execDir)
+	if _, err := os.Stat(filepath.Join(parentDir, "rules_template")); err == nil {
+		return parentDir, nil
 	}
 
 	return "", fmt.Errorf("找不到 rules_template 目录，请在 CursorColdStart 项目目录下运行")
