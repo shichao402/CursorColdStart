@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
     
     steps:
       - uses: actions/checkout@v4
@@ -88,3 +89,18 @@ jobs:
             /tmp/release/package.json
             /tmp/release/*.tar.gz
           generate_release_notes: true
+      
+      # 触发注册表同步（创建 sync issue，使用 pack-sync label）
+      - name: Trigger Registry Sync
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 使用 gh CLI 创建 issue，自动添加 pack-sync label
+          # 这是 CursorToolset v1.7.3+ 的标准方式
+          gh issue create \
+            --repo shichao402/CursorToolset \
+            --title "[sync] ${{ github.repository }} v${{ github.ref_name }}" \
+            --body "Package: ${{ github.repository }}
+          Version: ${{ github.ref_name }}
+          Release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}" \
+            --label "pack-sync"
