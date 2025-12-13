@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/cursor-cold-start/cursor-cold-start/internal/initializer"
-	"github.com/cursor-cold-start/cursor-cold-start/internal/template"
 	"github.com/cursor-cold-start/cursor-cold-start/pkg/utils"
 )
 
@@ -192,7 +190,11 @@ func (e *Executor) firstInit(targetDir string) error {
 	// 复制通用规则（默认只注入 cursor）
 	fmt.Println("📋 注入通用规则...")
 	defaultIDEs := []string{"cursor"}
-	if err := e.copyCommonRules(targetDir, defaultIDEs); err != nil {
+	
+	// 使用 RuleGeneratorFacade 统一处理（仅核心规则模式）
+	generator := NewRuleGeneratorFacade(e.templateDir, e.init)
+	minimalConfig := make(map[string]interface{}) // 空配置，仅生成核心规则
+	if err := generator.GenerateWithMode(targetDir, minimalConfig, defaultIDEs, true); err != nil {
 		return err
 	}
 
@@ -348,50 +350,12 @@ func (e *Executor) mergeConfigs(project, tech, packs map[string]interface{}) map
 	return config
 }
 
-// copyCommonRules 复制核心规则
+// copyCommonRules 已废弃，使用 RuleGeneratorFacade.GenerateWithMode 替代
+// 保留此函数仅用于向后兼容（如果其他地方有调用）
 func (e *Executor) copyCommonRules(targetDir string, ides []string) error {
-	processor := template.NewProcessor()
-
-	// 使用最小化的占位符值
-	values := map[string]interface{}{
-		"PROJECT_NAME":           "项目",
-		"PROGRAMMING_LANGUAGE":   "待配置",
-		"FRAMEWORK":              "待配置",
-		"BUILD_TOOL":             "待配置",
-		"CODE_LANGUAGE":          "text",
-		"TARGET_PLATFORMS":       "待配置",
-		"LOGGER_SERVICE_CLASS":   "LogService",
-	}
-
-	coreDir := filepath.Join(e.templateDir, "templates", "core")
-	if !utils.DirExists(coreDir) {
-		return nil
-	}
-
-	// 为每个 IDE 生成规则
-	for _, ide := range ides {
-		rulesDir := filepath.Join(targetDir, getIDERulesDir(ide))
-		if err := os.MkdirAll(rulesDir, 0755); err != nil {
-			return fmt.Errorf("无法创建目录 %s: %w", rulesDir, err)
-		}
-
-		entries, _ := os.ReadDir(coreDir)
-		for _, entry := range entries {
-			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".template") {
-				templateFile := filepath.Join(coreDir, entry.Name())
-				baseName := strings.TrimSuffix(entry.Name(), ".template")
-				outputFile := filepath.Join(rulesDir, baseName)
-
-				if err := processor.RenderTemplateToFile(templateFile, outputFile, values); err != nil {
-					fmt.Printf("  ⚠️  %s (跳过: %v)\n", baseName, err)
-					continue
-				}
-				fmt.Printf("  ✅ %s/rules/%s\n", getIDEDirName(ide), baseName)
-			}
-		}
-	}
-
-	return nil
+	generator := NewRuleGeneratorFacade(e.templateDir, e.init)
+	minimalConfig := make(map[string]interface{})
+	return generator.GenerateWithMode(targetDir, minimalConfig, ides, true)
 }
 
 // getIDERulesDir 获取 IDE 规则目录路径
@@ -427,283 +391,15 @@ func getIDEDirName(ide string) string {
 }
 
 // generateRules 根据配置生成规则
+// 使用门面模式：通过 RuleGeneratorFacade 统一管理规则生成流程
 func (e *Executor) generateRules(targetDir string, config map[string]interface{}, ides []string) error {
-	processor := template.NewProcessor()
-	values := e.init.GetPlaceholderValues(config)
+	// 创建规则生成门面
+	generator := NewRuleGeneratorFacade(e.templateDir, e.init)
 
-	// 收集所有应该存在的规则文件名（用于后续清理）
-	expectedFiles := make(map[string]bool)
-
-	// 收集所有要生成的规则文件
-	type ruleFile struct {
-		templatePath string
-		outputName   string
-	}
-	var rules []ruleFile
-
-	// 1. 核心规则
-	coreDir := filepath.Join(e.templateDir, "templates", "core")
-	if utils.DirExists(coreDir) {
-		entries, _ := os.ReadDir(coreDir)
-		for _, entry := range entries {
-			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".template") {
-				baseName := strings.TrimSuffix(entry.Name(), ".template")
-				rules = append(rules, ruleFile{
-					templatePath: filepath.Join(coreDir, entry.Name()),
-					outputName:   baseName,
-				})
-			}
-		}
-	}
-
-	// 2. 语言规则
-	lang := getStringValue(config, "language")
-	if lang != "" {
-		langDir := filepath.Join(e.templateDir, "templates", "tech", "languages")
-		langTemplate := filepath.Join(langDir, fmt.Sprintf("10-%s.mdc.template", lang))
-		if utils.FileExists(langTemplate) {
-			rules = append(rules, ruleFile{
-				templatePath: langTemplate,
-				outputName:   fmt.Sprintf("10-%s.mdc", lang),
-			})
-		}
-	}
-
-	// 3. 框架规则
-	framework := getStringValue(config, "framework")
-	if framework != "" {
-		fwDir := filepath.Join(e.templateDir, "templates", "tech", "frameworks")
-		fwTemplate := filepath.Join(fwDir, fmt.Sprintf("20-%s.mdc.template", framework))
-		if utils.FileExists(fwTemplate) {
-			rules = append(rules, ruleFile{
-				templatePath: fwTemplate,
-				outputName:   fmt.Sprintf("20-%s.mdc", framework),
-			})
-		}
-	}
-
-	// 4. 平台规则
-	platforms := getSliceValue(config, "platforms")
-	platformPriority := 30
-	for _, platform := range platforms {
-		platformDir := filepath.Join(e.templateDir, "templates", "tech", "platforms")
-		platformTemplate := filepath.Join(platformDir, fmt.Sprintf("30-%s.mdc.template", platform))
-		if utils.FileExists(platformTemplate) {
-			rules = append(rules, ruleFile{
-				templatePath: platformTemplate,
-				outputName:   fmt.Sprintf("%d-%s.mdc", platformPriority, platform),
-			})
-			platformPriority++
-		}
-	}
-
-	// 为每个 IDE 生成规则
-	for _, ide := range ides {
-		rulesDir := filepath.Join(targetDir, getIDERulesDir(ide))
-		if err := os.MkdirAll(rulesDir, 0755); err != nil {
-			return fmt.Errorf("无法创建目录 %s: %w", rulesDir, err)
-		}
-
-		// 生成基础规则
-		for _, rule := range rules {
-			expectedFiles[rule.outputName] = true
-			outputFile := filepath.Join(rulesDir, rule.outputName)
-			if err := processor.RenderTemplateToFile(rule.templatePath, outputFile, values); err != nil {
-				fmt.Printf("  ⚠️  %s (跳过: %v)\n", rule.outputName, err)
-				continue
-			}
-			fmt.Printf("  ✅ %s\n", rule.outputName)
-		}
-
-		// 5. 功能包规则
-		packs, _ := config["packs"].(map[string]interface{})
-		if packs != nil {
-			packFiles := e.generatePackRules(rulesDir, packs, values, processor)
-			for _, f := range packFiles {
-				expectedFiles[f] = true
-			}
-		}
-
-		// 6. 清理不再需要的规则文件（只清理 coldstart 生成的文件）
-		e.cleanupObsoleteRules(rulesDir, expectedFiles)
-		
-		// 7. 保存生成文件清单
-		e.saveGeneratedFilesList(rulesDir, expectedFiles)
-	}
-
-	return nil
+	// 通过门面生成规则
+	return generator.Generate(targetDir, config, ides)
 }
 
-const generatedFilesListName = ".coldstart-generated"
-
-// cleanupObsoleteRules 清理不再需要的规则文件（只清理 coldstart 之前生成的文件）
-func (e *Executor) cleanupObsoleteRules(rulesDir string, expectedFiles map[string]bool) {
-	// 读取之前生成的文件清单
-	previousFiles := e.loadGeneratedFilesList(rulesDir)
-	if len(previousFiles) == 0 {
-		return // 没有清单，跳过清理（首次运行或清单丢失）
-	}
-
-	for fileName := range previousFiles {
-		// 如果之前生成的文件不在本次预期列表中，删除它
-		if !expectedFiles[fileName] {
-			filePath := filepath.Join(rulesDir, fileName)
-			if err := os.Remove(filePath); err != nil {
-				if !os.IsNotExist(err) {
-					fmt.Printf("  ⚠️  无法删除 %s: %v\n", fileName, err)
-				}
-			} else {
-				fmt.Printf("  🗑️  已删除 %s (不再需要)\n", fileName)
-			}
-		}
-	}
-}
-
-// loadGeneratedFilesList 加载之前生成的文件清单
-func (e *Executor) loadGeneratedFilesList(rulesDir string) map[string]bool {
-	listFile := filepath.Join(rulesDir, generatedFilesListName)
-	data, err := os.ReadFile(listFile)
-	if err != nil {
-		return nil
-	}
-	
-	files := make(map[string]bool)
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if line != "" && !strings.HasPrefix(line, "#") {
-			files[line] = true
-		}
-	}
-	return files
-}
-
-// saveGeneratedFilesList 保存生成的文件清单
-func (e *Executor) saveGeneratedFilesList(rulesDir string, files map[string]bool) {
-	listFile := filepath.Join(rulesDir, generatedFilesListName)
-	
-	var lines []string
-	lines = append(lines, "# This file is auto-generated by coldstart")
-	lines = append(lines, "# Do not edit manually")
-	lines = append(lines, "")
-	
-	// 排序以保持稳定输出
-	var sortedFiles []string
-	for f := range files {
-		sortedFiles = append(sortedFiles, f)
-	}
-	sort.Strings(sortedFiles)
-	
-	lines = append(lines, sortedFiles...)
-	
-	content := strings.Join(lines, "\n") + "\n"
-	if err := os.WriteFile(listFile, []byte(content), 0644); err != nil {
-		fmt.Printf("  ⚠️  无法保存文件清单: %v\n", err)
-	}
-}
-
-// generatePackRules 生成功能包规则，返回生成的文件名列表
-func (e *Executor) generatePackRules(rulesDir string, packs map[string]interface{}, values map[string]interface{}, processor *template.Processor) []string {
-	var generatedFiles []string
-	packsDir := filepath.Join(e.templateDir, "templates", "packs")
-	
-	// 遍历所有功能包
-	packEntries, _ := os.ReadDir(packsDir)
-	for _, packEntry := range packEntries {
-		if !packEntry.IsDir() {
-			continue
-		}
-		
-		packID := packEntry.Name()
-		packConfig, ok := packs[packID].(map[string]interface{})
-		if !ok {
-			continue
-		}
-		
-		// 检查是否启用
-		if !getBoolValue(packConfig, "enabled") {
-			continue
-		}
-		
-		// 读取 pack.config.json 获取优先级和依赖
-		packConfigFile := filepath.Join(packsDir, packID, "pack.config.json")
-		packMeta, err := readJSONFile(packConfigFile)
-		if err != nil {
-			continue
-		}
-		
-		// 检查依赖
-		dependencies := getStringSliceFromInterface(packMeta["dependencies"])
-		missingDeps := []string{}
-		for _, dep := range dependencies {
-			depConfig, ok := packs[dep].(map[string]interface{})
-			if !ok || !getBoolValue(depConfig, "enabled") {
-				missingDeps = append(missingDeps, dep)
-			}
-		}
-		if len(missingDeps) > 0 {
-			fmt.Printf("  ⚠️  %s (跳过: 缺少依赖 %v)\n", packID, missingDeps)
-			continue
-		}
-		
-		priority := int(getFloatValue(packMeta, "priority"))
-		if priority == 0 {
-			priority = 40 // 默认优先级
-		}
-		
-		// 合并 pack 特定配置到 values
-		packValues := make(map[string]interface{})
-		for k, v := range values {
-			packValues[k] = v
-		}
-		
-		// 添加 pack 配置（使用智能字段映射）
-		if packCfg, ok := packConfig["config"].(map[string]interface{}); ok {
-			for k, v := range packCfg {
-				// 字段名映射表
-				fieldMapping := map[string]string{
-					"serviceClass": "LOGGER_SERVICE_CLASS",
-					"filePath":     "LOG_FILE_PATH",
-					"sourceFile":   "VERSION_SOURCE_FILE",
-					"packageName":  "PACKAGE_NAME",
-					"moduleName":   "MODULE_NAME",
-					"modulePath":   "MODULE_PATH",
-				}
-				
-				if mappedKey, ok := fieldMapping[k]; ok {
-					packValues[mappedKey] = v
-				} else {
-					// 默认转换为大写下划线格式
-					packValues[toUpperSnakeCase(k)] = v
-				}
-			}
-		}
-		
-		// 生成规则文件
-		rulesPath := filepath.Join(packsDir, packID, "rules")
-		if utils.DirExists(rulesPath) {
-			ruleEntries, _ := os.ReadDir(rulesPath)
-			for _, ruleEntry := range ruleEntries {
-				if ruleEntry.IsDir() || !strings.HasSuffix(ruleEntry.Name(), ".template") {
-					continue
-				}
-				
-				templateFile := filepath.Join(rulesPath, ruleEntry.Name())
-				baseName := strings.TrimSuffix(ruleEntry.Name(), ".template")
-				outputFileName := fmt.Sprintf("%d-%s", priority, baseName)
-				outputFile := filepath.Join(rulesDir, outputFileName)
-				
-				if err := processor.RenderTemplateToFile(templateFile, outputFile, packValues); err != nil {
-					fmt.Printf("  ⚠️  %s (跳过: %v)\n", outputFileName, err)
-					continue
-				}
-				fmt.Printf("  ✅ %s\n", outputFileName)
-				generatedFiles = append(generatedFiles, outputFileName)
-			}
-		}
-	}
-	
-	return generatedFiles
-}
 
 // List 列出可用选项
 func (e *Executor) List(listType string) error {
