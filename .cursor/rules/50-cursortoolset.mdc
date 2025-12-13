@@ -123,6 +123,40 @@ cursortoolset pack --verify
 
 ### 使用 cursortoolset release 命令
 
+#### 推荐方式：使用 --wait 选项
+
+```bash
+# 发布 patch 版本并等待 CI 完成
+cursortoolset release --wait
+
+# 发布 minor 版本并等待
+cursortoolset release --minor --wait
+
+# 发布 major 版本并等待
+cursortoolset release --major --wait
+```
+
+#### release 命令选项
+
+| 选项 | 说明 |
+|------|------|
+| `--major` | 发布主版本 (x.0.0) |
+| `--minor` | 发布次版本 (0.x.0) |
+| `--patch` | 发布补丁版本 (0.0.x)，默认 |
+| `--wait` | 等待 GitHub Actions 完成并确认 Release 创建 |
+| `--dry-run` | 预览模式，不执行实际操作 |
+| `--skip-tag` | 跳过 Git tag 和 push |
+
+#### --wait 功能说明
+
+- 推送 tag 后自动轮询 GitHub Actions 状态
+- 使用 `gh` CLI 查询 API（避免限流）
+- Workflow 完成后自动检查 Release 是否创建成功
+- 超时时间：30 分钟
+- **前置条件**：需要安装并认证 `gh` CLI (`gh auth login`)
+
+#### 基本用法（不使用 --wait）
+
 ```bash
 # 发布 patch 版本 (0.0.x) - 默认
 cursortoolset release
@@ -146,7 +180,9 @@ cursortoolset release --dry-run
 5. ✅ 创建 Git tag
 6. ✅ 推送到远程仓库
 
-> **提示**：使用 `--dry-run` 先预览，确认无误后再正式发布。
+> **提示**：
+> - **推荐使用 `--wait` 选项**：在自动化发布流程中，使用 `--wait` 可以避免频繁调用 GitHub API 导致限流问题
+> - 使用 `--dry-run` 先预览，确认无误后再正式发布
 
 ### 发布后自动流程
 
@@ -154,7 +190,9 @@ cursortoolset release --dry-run
 
 1. 创建 Release 并上传文件
 2. **首次发布**：自动创建 `[auto-register]` Issue，触发注册到 CursorToolset
-3. **后续发布**：自动创建 `[sync]` Issue，触发版本同步
+3. **后续发布**：自动创建带有 `pack-sync` label 的 `[sync]` Issue，触发版本同步
+
+> **重要（v1.7.3+）**：后续发布时，必须使用 `pack-sync` label 创建 sync issue，这是 CursorToolset 识别和处理 sync issue 的标准方式。Release workflow 模板已更新为使用 `gh` CLI 自动添加此 label。
 
 ## 注册与同步机制
 
@@ -168,10 +206,22 @@ cursortoolset release --dry-run
 
 ### 后续发布 - 自动同步
 
-后续发布时，GitHub Actions 会自动创建 `[sync]` Issue：
+后续发布时，GitHub Actions 会自动创建带有 `pack-sync` label 的 sync Issue：
 
-1. 触发 CursorToolset 立即同步版本信息
-2. 也可等待定时同步（每小时一次）
+1. **使用 `pack-sync` label 识别**：CursorToolset 通过 `pack-sync` label 识别 sync issue（更可靠，不依赖 title 解析）
+2. **支持 Payload 文件读取**：如果使用 `github-issue` 工具创建 issue，CursorToolset 会优先从 Gist payload 读取同步信息
+3. **自动触发同步**：Issue 创建后，CursorToolset 的 sync workflow 会自动处理并同步版本信息
+4. **定时同步**：也可等待定时同步（每小时一次）
+
+### Sync Issue 处理机制（v1.7.3+）
+
+CursorToolset v1.7.3 改进了包发布后自动同步机制：
+
+1. **使用 `pack-sync` label 识别**：从依赖 title 解析改为使用 `pack-sync` label 识别 sync issue，更可靠
+2. **支持 Payload 文件读取**：优先从 Gist payload 读取同步信息（如果使用 `github-issue` 工具创建），避免解析问题
+3. **完全自动化**：Release workflow 自动创建 sync issue，无需手动操作
+
+**重要**：确保 Release workflow 中创建 issue 时添加 `pack-sync` label，这是 CursorToolset 识别 sync issue 的标准方式。
 
 ### 手动注册（维护者使用）
 
@@ -203,6 +253,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
     
     steps:
       - uses: actions/checkout@v4
@@ -246,17 +297,20 @@ jobs:
             /tmp/release/*.tar.gz
           generate_release_notes: true
       
-      # 触发注册/同步（首次发布为 auto-register，后续为 sync）
+      # 触发注册表同步（创建 sync issue，使用 pack-sync label）
       - name: Trigger Registry Sync
-        uses: peter-evans/create-issue@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository: shichao402/CursorToolset
-          title: "[sync] ${{ github.repository }} v${{ github.ref_name }}"
-          body: |
-            Package: ${{ github.repository }}
-            Version: ${{ github.ref_name }}
-            Release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 使用 gh CLI 创建 issue，自动添加 pack-sync label
+          # 这是 CursorToolset v1.7.3+ 的标准方式
+          gh issue create \
+            --repo shichao402/CursorToolset \
+            --title "[sync] ${{ github.repository }} v${{ github.ref_name }}" \
+            --body "Package: ${{ github.repository }}
+          Version: ${{ github.ref_name }}
+          Release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}" \
+            --label "pack-sync"
 ```
 
 ## 常见问题
@@ -300,6 +354,20 @@ jobs:
 1. 检查 CursorToolset 仓库的 Issues
 2. 确认包结构符合规范
 3. 手动联系维护者或重新发布
+
+### Q: 发布后未自动创建 sync issue 或注册表未同步
+
+**原因（v1.7.3+）**：
+1. Release workflow 中未正确创建 sync issue 或未添加 `pack-sync` label
+2. CursorToolset 无法识别 sync issue（缺少 `pack-sync` label）
+
+**解决**：
+1. 检查 Release workflow 是否正确创建 sync issue 并添加 `pack-sync` label
+2. 确保使用 `gh` CLI 创建 issue（推荐方式）
+3. 检查 CursorToolset 仓库的 sync workflow 是否正常运行
+4. 确认 sync issue 是否带有 `pack-sync` label
+
+**重要**：从 v1.7.3 开始，CursorToolset 使用 `pack-sync` label 识别 sync issue，不再依赖 title 解析。确保 Release workflow 模板已更新。
 
 ## 禁止行为
 
