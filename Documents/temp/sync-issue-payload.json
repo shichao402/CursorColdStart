@@ -1,7 +1,0 @@
-{
-  "description": "使用 `cursortoolset release --wait` 发布包后，发现两个自动化流程问题：\n\n1. **GitHub Actions 工作流未自动创建 sync issue**\n   - Release 创建成功后，应该自动创建 `[sync]` Issue 到 CursorToolset 仓库\n   - 但实际工作流中缺少此步骤，需要手动创建\n\n2. **注册表未自动同步**\n   - 即使手动创建了 sync issue (#7)，注册表仍未更新到新版本\n   - 注册表版本仍为 2.4.1，而 Release 已发布 2.4.2\n\n详细问题分析文档：https://github.com/shichao402/CursorColdStart/blob/main/Documents/temp/release-sync-issue-analysis.md",
-  "motivation": "根据 cursortoolset 包开发规则，发布流程应该是完全自动化的：\n\n```\n1. cursortoolset release --wait\n2. GitHub Actions 自动创建 Release\n3. 自动创建 sync issue\n4. 自动更新注册表\n5. 用户可以立即更新包\n```\n\n但当前流程在第 3、4 步中断，破坏了自动化体验。",
-  "proposed_solution": "1. **修复 GitHub Actions 工作流模板**\n   - 在规则文档中的工作流模板应包含创建 sync issue 的步骤\n   - 添加判断首次发布/后续发布的逻辑\n   - 确保使用正确的 issue 类型和格式\n\n2. **改进注册表同步机制**\n   - 检查 sync issue 处理流程是否正常工作\n   - 添加同步状态查询和错误处理\n   - 提供同步失败时的通知机制\n\n3. **完善文档和示例**\n   - 确保工作流模板示例完整且可运行\n   - 添加故障排除指南",
-  "additional_context": "相关 Issue: shichao402/CursorToolset#7\n\n发布信息：\n- 包名：cursor-cold-start\n- 版本：2.4.1 → 2.4.2\n- Release：https://github.com/shichao402/CursorColdStart/releases/tag/v2.4.2\n- 手动创建的 sync issue：https://github.com/shichao402/CursorToolset/issues/7\n\n当前状态：\n- Release 已成功创建\n- Sync issue 已手动创建并关闭\n- 注册表仍未更新（仍为 2.4.1）"
-}
-
