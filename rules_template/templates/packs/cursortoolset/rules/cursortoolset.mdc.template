@@ -123,6 +123,40 @@ cursortoolset pack --verify
 
 ### 使用 cursortoolset release 命令
 
+#### 推荐方式：使用 --wait 选项
+
+```bash
+# 发布 patch 版本并等待 CI 完成
+cursortoolset release --wait
+
+# 发布 minor 版本并等待
+cursortoolset release --minor --wait
+
+# 发布 major 版本并等待
+cursortoolset release --major --wait
+```
+
+#### release 命令选项
+
+| 选项 | 说明 |
+|------|------|
+| `--major` | 发布主版本 (x.0.0) |
+| `--minor` | 发布次版本 (0.x.0) |
+| `--patch` | 发布补丁版本 (0.0.x)，默认 |
+| `--wait` | 等待 GitHub Actions 完成并确认 Release 创建 |
+| `--dry-run` | 预览模式，不执行实际操作 |
+| `--skip-tag` | 跳过 Git tag 和 push |
+
+#### --wait 功能说明
+
+- 推送 tag 后自动轮询 GitHub Actions 状态
+- 使用 `gh` CLI 查询 API（避免限流）
+- Workflow 完成后自动检查 Release 是否创建成功
+- 超时时间：30 分钟
+- **前置条件**：需要安装并认证 `gh` CLI (`gh auth login`)
+
+#### 基本用法（不使用 --wait）
+
 ```bash
 # 发布 patch 版本 (0.0.x) - 默认
 cursortoolset release
@@ -146,7 +180,9 @@ cursortoolset release --dry-run
 5. ✅ 创建 Git tag
 6. ✅ 推送到远程仓库
 
-> **提示**：使用 `--dry-run` 先预览，确认无误后再正式发布。
+> **提示**：
+> - **推荐使用 `--wait` 选项**：在自动化发布流程中，使用 `--wait` 可以避免频繁调用 GitHub API 导致限流问题
+> - 使用 `--dry-run` 先预览，确认无误后再正式发布
 
 ### 发布后自动流程
 
